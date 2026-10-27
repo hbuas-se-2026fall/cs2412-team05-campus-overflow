@@ -1,0 +1,52 @@
+### 冒烟脚本：认证与会话、课程（Sprint0 / T0-08）
+
+> 与后端真实接口保持一致（参考 `CampusOverflowFlowIT` 与 `AuthController` / `CourseController`）。
+> 约定：基础前缀 `/api/v1`；会话 Cookie `SESSION`（HttpOnly、SameSite=Lax）；CSRF 双提交——
+> 先 `GET /api/v1/auth/csrf` 取得 `XSRF-TOKEN` Cookie，后续写请求携带 `X-XSRF-TOKEN` 请求头。
+
+### 1) 获取 CSRF Token（同时写入 XSRF-TOKEN Cookie）
+GET /api/v1/auth/csrf
+Accept: application/json
+
+### 2) 注册学生账号（201 返回 {"id": <userId>}）
+# @name register
+POST /api/v1/auth/register
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrf-token}}
+
+{
+  "username": "smoke_student01",
+  "displayName": "冒烟学生01",
+  "email": "smoke_student01@example.com",
+  "password": "Campus2026",
+  "college": "计算机学院",
+  "className": "计科2401"
+}
+
+### 3) 登录（200 返回 MeView，写入 SESSION Cookie）
+# @name login
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "smoke_student01",
+  "password": "Campus2026"
+}
+
+### 4) 当前登录用户
+GET /api/v1/auth/me
+Accept: application/json
+
+### 5) 课程列表（登录时附带我的课程角色）
+GET /api/v1/courses
+Accept: application/json
+
+### 6) 我加入的课程
+GET /api/v1/courses/mine
+Accept: application/json
+
+### 7) 申请加入课程（202 Accepted；需教师/助教审核）
+# @name joinCourse
+POST /api/v1/courses/1/join
+X-XSRF-TOKEN: {{xsrf-token}}
+Accept: application/json
