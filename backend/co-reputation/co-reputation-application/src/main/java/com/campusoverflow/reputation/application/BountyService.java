@@ -55,7 +55,7 @@ public class BountyService {
     @Transactional
     public long open(Actor actor, long questionId, int points, int days) {
         if (bounties.findOpenByQuestion(questionId).isPresent()) {
-            throw new ConflictException("BOUNTY_ALREADY_OPEN", "该问题已有进行中的悬赏");
+            throw new ConflictException("REP-2001", "该问题已有进行中的悬赏");
         }
         QuestionRef question = qa.findQuestion(questionId)
                 .orElseThrow(() -> new NotFoundException("QA-4001", "问题不存在，id=" + questionId));
@@ -64,7 +64,7 @@ public class BountyService {
         Bounty bounty = Bounty.open(questionId, !question.deleted() && question.acceptedAnswerId() == null,
                 actor, managesCourse, points, days, now);
         ReputationAccount sponsor = accounts.findByUserId(actor.userId())
-                .orElseThrow(() -> new NotFoundException("REPUTATION_ACCOUNT_NOT_FOUND", "声誉账户不存在"));
+                .orElseThrow(() -> new NotFoundException("REP-4001", "声誉账户不存在"));
         sponsor.freezePoints(points);
         accounts.save(sponsor);
         Bounty saved = bounties.save(bounty);
@@ -84,7 +84,7 @@ public class BountyService {
         }
         Bounty bounty = openBounty.get();
         ReputationAccount sponsor = accounts.findByUserId(bounty.sponsorId())
-                .orElseThrow(() -> new NotFoundException("REPUTATION_ACCOUNT_NOT_FOUND", "悬赏发起人账户不存在"));
+                .orElseThrow(() -> new NotFoundException("REP-4001", "悬赏发起人账户不存在"));
         Instant now = clock.instant();
         if (winnerId == bounty.sponsorId() || bounty.isDue(now)) {
             closeAndRefund(bounty, sponsor, now);
@@ -108,7 +108,7 @@ public class BountyService {
         List<Bounty> due = bounties.findDue(now, 100);
         for (Bounty bounty : due) {
             ReputationAccount sponsor = accounts.findByUserId(bounty.sponsorId())
-                    .orElseThrow(() -> new NotFoundException("REPUTATION_ACCOUNT_NOT_FOUND", "悬赏发起人账户不存在"));
+                    .orElseThrow(() -> new NotFoundException("REP-4001", "悬赏发起人账户不存在"));
             closeAndRefund(bounty, sponsor, now);
         }
         return due.size();
