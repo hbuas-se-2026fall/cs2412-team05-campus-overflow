@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CourseRepositoryAdapter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Identity 身份与认证 :: infrastructure（持久化与适配器）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.identity.infrastructure.persistence</a> &gt; <span class="el_source">CourseRepositoryAdapter.java</span></div><h1>CourseRepositoryAdapter.java</h1><pre class="source lang-java linenums">package com.campusoverflow.identity.infrastructure.persistence;
+
+import com.campusoverflow.identity.domain.Course;
+import com.campusoverflow.identity.domain.CourseMember;
+import com.campusoverflow.identity.domain.CourseMemberStatus;
+import com.campusoverflow.identity.domain.CourseRepository;
+import com.campusoverflow.identity.domain.CourseRole;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class CourseRepositoryAdapter implements CourseRepository {
+
+    private final CourseJpaRepository courses;
+    private final CourseMemberJpaRepository members;
+
+<span class="nc" id="L19">    public CourseRepositoryAdapter(CourseJpaRepository courses, CourseMemberJpaRepository members) {</span>
+<span class="nc" id="L20">        this.courses = courses;</span>
+<span class="nc" id="L21">        this.members = members;</span>
+<span class="nc" id="L22">    }</span>
+
+    @Override
+    public Course save(Course course) {
+<span class="nc bnc" id="L26" title="All 2 branches missed.">        if (course.id() != null) {</span>
+<span class="nc" id="L27">            return course; // 课程创建后字段不可变</span>
+        }
+<span class="nc" id="L29">        CourseJpaEntity saved = courses.save(new CourseJpaEntity(course.code(), course.name(), course.term(),</span>
+<span class="nc" id="L30">                course.teacherId(), course.createdAt()));</span>
+<span class="nc" id="L31">        course.assignId(saved.getId());</span>
+<span class="nc" id="L32">        return course;</span>
+    }
+
+    @Override
+    public Optional&lt;Course&gt; findById(long id) {
+<span class="nc" id="L37">        return courses.findById(id).map(CourseRepositoryAdapter::toDomain);</span>
+    }
+
+    @Override
+    public List&lt;Course&gt; findAll() {
+<span class="nc" id="L42">        return courses.findAll(Sort.by(Sort.Direction.DESC, &quot;createdAt&quot;)).stream()</span>
+<span class="nc" id="L43">                .map(CourseRepositoryAdapter::toDomain).toList();</span>
+    }
+
+    @Override
+    public boolean existsByCodeAndTerm(String code, String term) {
+<span class="nc" id="L48">        return courses.existsByCodeAndTerm(code, term);</span>
+    }
+
+    @Override
+    public Optional&lt;CourseMember&gt; findMember(long courseId, long userId) {
+<span class="nc" id="L53">        return members.findByCourseIdAndUserId(courseId, userId).map(CourseRepositoryAdapter::toDomain);</span>
+    }
+
+    @Override
+    public CourseMember saveMember(CourseMember member) {
+<span class="nc" id="L58">        CourseMemberJpaEntity e = members.findByCourseIdAndUserId(member.courseId(), member.userId())</span>
+<span class="nc" id="L59">                .orElseGet(() -&gt; new CourseMemberJpaEntity(member.courseId(), member.userId(), member.role().name(),</span>
+<span class="nc" id="L60">                        member.status().name(), member.joinedAt()));</span>
+<span class="nc" id="L61">        e.setRole(member.role().name());</span>
+<span class="nc" id="L62">        e.setStatus(member.status().name());</span>
+<span class="nc" id="L63">        members.save(e);</span>
+<span class="nc" id="L64">        return member;</span>
+    }
+
+    @Override
+    public List&lt;CourseMember&gt; findMembers(long courseId) {
+<span class="nc" id="L69">        return members.findByCourseIdAndStatus(courseId, CourseMemberStatus.APPROVED.name()).stream()</span>
+<span class="nc" id="L70">                .map(CourseRepositoryAdapter::toDomain).toList();</span>
+    }
+
+    @Override
+    public List&lt;CourseMember&gt; findPendingMembers(long courseId) {
+<span class="nc" id="L75">        return members.findByCourseIdAndStatus(courseId, CourseMemberStatus.PENDING.name()).stream()</span>
+<span class="nc" id="L76">                .map(CourseRepositoryAdapter::toDomain).toList();</span>
+    }
+
+    @Override
+    public List&lt;CourseMember&gt; findMembershipsOfUser(long userId) {
+<span class="nc" id="L81">        return members.findByUserIdAndStatus(userId, CourseMemberStatus.APPROVED.name()).stream()</span>
+<span class="nc" id="L82">                .map(CourseRepositoryAdapter::toDomain).toList();</span>
+    }
+
+    private static Course toDomain(CourseJpaEntity e) {
+<span class="nc" id="L86">        return Course.reconstitute(e.getId(), e.getCode(), e.getName(), e.getTerm(), e.getTeacherId(), e.getCreatedAt());</span>
+    }
+
+    private static CourseMember toDomain(CourseMemberJpaEntity e) {
+<span class="nc" id="L90">        return CourseMember.reconstitute(e.getCourseId(), e.getUserId(), CourseRole.valueOf(e.getRole()),</span>
+<span class="nc" id="L91">                com.campusoverflow.identity.domain.CourseMemberStatus.valueOf(e.getStatus()), e.getJoinedAt());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

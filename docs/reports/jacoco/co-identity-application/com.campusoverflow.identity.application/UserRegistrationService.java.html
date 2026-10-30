@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserRegistrationService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Identity 身份与认证 :: application（用例编排）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.identity.application</a> &gt; <span class="el_source">UserRegistrationService.java</span></div><h1>UserRegistrationService.java</h1><pre class="source lang-java linenums">package com.campusoverflow.identity.application;
+
+import com.campusoverflow.identity.api.event.UserRegisteredEvent;
+import com.campusoverflow.identity.domain.PasswordHasher;
+import com.campusoverflow.identity.domain.PasswordPolicy;
+import com.campusoverflow.identity.domain.User;
+import com.campusoverflow.identity.domain.UserRepository;
+import com.campusoverflow.shared.audit.AuditTrail;
+import com.campusoverflow.shared.domain.ConflictException;
+import com.campusoverflow.shared.event.EventIds;
+import com.campusoverflow.shared.event.IntegrationEventPublisher;
+import com.campusoverflow.shared.util.Masking;
+import java.time.Clock;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** 用例：学生自助注册。 */
+@Service
+public class UserRegistrationService {
+
+    private final UserRepository users;
+    private final PasswordHasher hasher;
+    private final IntegrationEventPublisher events;
+    private final AuditTrail audit;
+    private final Clock clock;
+
+    public UserRegistrationService(UserRepository users, PasswordHasher hasher, IntegrationEventPublisher events,
+<span class="nc" id="L28">                                   AuditTrail audit, Clock clock) {</span>
+<span class="nc" id="L29">        this.users = users;</span>
+<span class="nc" id="L30">        this.hasher = hasher;</span>
+<span class="nc" id="L31">        this.events = events;</span>
+<span class="nc" id="L32">        this.audit = audit;</span>
+<span class="nc" id="L33">        this.clock = clock;</span>
+<span class="nc" id="L34">    }</span>
+
+    @Transactional
+    public long register(RegisterUserCommand cmd) {
+<span class="nc" id="L38">        PasswordPolicy.validate(cmd.password());</span>
+<span class="nc" id="L39">        User user = User.register(cmd.username(), cmd.displayName(), cmd.email(), hasher.hash(cmd.password()),</span>
+<span class="nc" id="L40">                cmd.college(), cmd.className(), clock.instant());</span>
+<span class="nc" id="L41">        ensureUnique(user);</span>
+<span class="nc" id="L42">        User saved = users.save(user);</span>
+<span class="nc" id="L43">        events.publish(new UserRegisteredEvent(EventIds.next(), clock.instant(), saved.id(), saved.displayName(),</span>
+<span class="nc" id="L44">                saved.role()));</span>
+<span class="nc" id="L45">        audit.record(&quot;USER_REGISTERED&quot;, saved.id(), &quot;USER&quot;, String.valueOf(saved.id()),</span>
+<span class="nc" id="L46">                Masking.account(saved.username()));</span>
+<span class="nc" id="L47">        return saved.id();</span>
+    }
+
+    void ensureUnique(User user) {
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        if (users.existsByUsername(user.username())) {</span>
+<span class="nc" id="L52">            throw new ConflictException(&quot;ID-2001&quot;, &quot;该学号/工号已注册&quot;);</span>
+        }
+<span class="nc bnc" id="L54" title="All 2 branches missed.">        if (users.existsByDisplayName(user.displayName())) {</span>
+<span class="nc" id="L55">            throw new ConflictException(&quot;ID-2002&quot;, &quot;该昵称已被使用&quot;);</span>
+        }
+<span class="nc bnc" id="L57" title="All 2 branches missed.">        if (users.existsByEmail(user.email())) {</span>
+<span class="nc" id="L58">            throw new ConflictException(&quot;ID-2003&quot;, &quot;该邮箱已被使用&quot;);</span>
+        }
+<span class="nc" id="L60">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

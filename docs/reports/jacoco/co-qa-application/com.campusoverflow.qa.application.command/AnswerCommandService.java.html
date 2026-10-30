@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AnswerCommandService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Q&amp;A 问答核心 :: application（用例编排）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.qa.application.command</a> &gt; <span class="el_source">AnswerCommandService.java</span></div><h1>AnswerCommandService.java</h1><pre class="source lang-java linenums">package com.campusoverflow.qa.application.command;
+
+import com.campusoverflow.identity.api.IdentityApi;
+import com.campusoverflow.qa.api.event.AnswerAcceptedEvent;
+import com.campusoverflow.qa.api.event.AnswerEndorsedEvent;
+import com.campusoverflow.qa.api.event.AnswerSubmittedEvent;
+import com.campusoverflow.qa.api.event.ContentDeletedEvent;
+import com.campusoverflow.qa.application.port.QuestionListCache;
+import com.campusoverflow.qa.domain.Answer;
+import com.campusoverflow.qa.domain.AnswerRepository;
+import com.campusoverflow.qa.domain.MarkdownBody;
+import com.campusoverflow.qa.domain.Question;
+import com.campusoverflow.qa.domain.QuestionRepository;
+import com.campusoverflow.shared.audit.AuditTrail;
+import com.campusoverflow.shared.domain.NotFoundException;
+import com.campusoverflow.shared.event.EventIds;
+import com.campusoverflow.shared.event.IntegrationEventPublisher;
+import com.campusoverflow.shared.security.Actor;
+import java.time.Clock;
+import java.time.Instant;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 用例：提交、编辑、删除回答，采纳最佳答案，以及教师认证。
+ */
+@Service
+public class AnswerCommandService {
+
+    private final QuestionRepository questions;
+    private final AnswerRepository answers;
+    private final IdentityApi identity;
+    private final IntegrationEventPublisher events;
+    private final QuestionListCache listCache;
+    private final AuditTrail audit;
+    private final Clock clock;
+
+    public AnswerCommandService(
+            QuestionRepository questions,
+            AnswerRepository answers,
+            IdentityApi identity,
+            IntegrationEventPublisher events,
+            QuestionListCache listCache,
+            AuditTrail audit,
+<span class="fc" id="L45">            Clock clock) {</span>
+<span class="fc" id="L46">        this.questions = questions;</span>
+<span class="fc" id="L47">        this.answers = answers;</span>
+<span class="fc" id="L48">        this.identity = identity;</span>
+<span class="fc" id="L49">        this.events = events;</span>
+<span class="fc" id="L50">        this.listCache = listCache;</span>
+<span class="fc" id="L51">        this.audit = audit;</span>
+<span class="fc" id="L52">        this.clock = clock;</span>
+<span class="fc" id="L53">    }</span>
+
+    /**
+     * 提交回答。
+     */
+    @Transactional
+    public long submit(Actor actor, long questionId, String body) {
+<span class="fc" id="L60">        Question question = loadQuestion(questionId);</span>
+
+        // 已删除或关闭的问题不能继续回答。
+<span class="fc" id="L63">        question.ensureOpenForAnswers();</span>
+
+<span class="fc" id="L65">        Instant now = clock.instant();</span>
+<span class="fc" id="L66">        MarkdownBody answerBody = MarkdownBody.ofAnswer(body);</span>
+<span class="fc" id="L67">        Answer answer = Answer.submit(question, actor.userId(), answerBody, now);</span>
+
+<span class="fc" id="L69">        Answer savedAnswer = answers.save(answer);</span>
+
+        // 通过仓储原子更新回答数，避免覆盖并发请求的计数结果。
+<span class="fc" id="L72">        questions.adjustAnswerCount(questionId, 1);</span>
+
+<span class="fc" id="L74">        events.publish(new AnswerSubmittedEvent(</span>
+<span class="fc" id="L75">                EventIds.next(),</span>
+                now,
+<span class="fc" id="L77">                savedAnswer.id(),</span>
+<span class="fc" id="L78">                question.id(),</span>
+<span class="fc" id="L79">                savedAnswer.authorId(),</span>
+<span class="fc" id="L80">                question.authorId(),</span>
+<span class="fc" id="L81">                question.title().value()</span>
+        ));
+
+<span class="fc" id="L84">        listCache.invalidateAll();</span>
+
+<span class="fc" id="L86">        return savedAnswer.id();</span>
+    }
+
+    /**
+     * 编辑回答。
+     */
+    @Transactional
+    public void edit(Actor actor, long answerId, String body) {
+<span class="nc" id="L94">        Answer answer = loadAnswer(answerId);</span>
+<span class="nc" id="L95">        Question question = loadQuestion(answer.questionId());</span>
+
+<span class="nc" id="L97">        boolean actorManagesCourse =</span>
+<span class="nc" id="L98">                identity.canManageCourse(actor.userId(), question.courseId());</span>
+
+<span class="nc" id="L100">        answer.edit(</span>
+                actor,
+                actorManagesCourse,
+<span class="nc" id="L103">                MarkdownBody.ofAnswer(body),</span>
+<span class="nc" id="L104">                clock.instant()</span>
+        );
+
+<span class="nc" id="L107">        answers.save(answer);</span>
+<span class="nc" id="L108">        listCache.invalidateAll();</span>
+<span class="nc" id="L109">    }</span>
+
+    /**
+     * 删除回答。
+     */
+    @Transactional
+    public void delete(Actor actor, long answerId) {
+<span class="nc" id="L116">        Answer answer = loadAnswer(answerId);</span>
+<span class="nc" id="L117">        Question question = loadQuestion(answer.questionId());</span>
+
+<span class="nc" id="L119">        boolean actorManagesCourse =</span>
+<span class="nc" id="L120">                identity.canManageCourse(actor.userId(), question.courseId());</span>
+
+<span class="nc" id="L122">        boolean accepted = question.isAccepted(answerId);</span>
+<span class="nc" id="L123">        Instant now = clock.instant();</span>
+
+        // 领域对象负责校验删除权限和已采纳回答的删除规则。
+<span class="nc" id="L126">        answer.softDelete(actor, actorManagesCourse, accepted, now);</span>
+
+<span class="nc" id="L128">        answers.save(answer);</span>
+<span class="nc" id="L129">        questions.adjustAnswerCount(question.id(), -1);</span>
+
+<span class="nc" id="L131">        events.publish(new ContentDeletedEvent(</span>
+<span class="nc" id="L132">                EventIds.next(),</span>
+                now,
+                &quot;ANSWER&quot;,
+<span class="nc" id="L135">                answer.id(),</span>
+<span class="nc" id="L136">                question.id()</span>
+        ));
+
+<span class="nc" id="L139">        audit.record(</span>
+                &quot;ANSWER_DELETED&quot;,
+<span class="nc" id="L141">                actor.userId(),</span>
+                &quot;ANSWER&quot;,
+<span class="nc" id="L143">                String.valueOf(answer.id()),</span>
+<span class="nc" id="L144">                &quot;questionId=&quot; + question.id()</span>
+        );
+
+<span class="nc" id="L147">        listCache.invalidateAll();</span>
+<span class="nc" id="L148">    }</span>
+
+    /**
+     * 采纳最佳答案。
+     * 只有提问者或课程管理者可以采纳，具体权限规则由 Question 聚合根校验。
+     */
+    @Transactional
+    public void accept(Actor actor, long questionId, long answerId) {
+<span class="fc" id="L156">        Question question = loadQuestion(questionId);</span>
+<span class="fc" id="L157">        Answer answer = loadAnswer(answerId);</span>
+
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">        if (answer.questionId() != questionId) {</span>
+<span class="nc" id="L160">            throw new NotFoundException(</span>
+                    &quot;QA-4002&quot;,
+                    &quot;该回答不属于指定问题&quot;
+            );
+        }
+
+<span class="fc" id="L166">        boolean actorManagesCourse =</span>
+<span class="fc" id="L167">                identity.canManageCourse(actor.userId(), question.courseId());</span>
+
+<span class="fc" id="L169">        Instant now = clock.instant();</span>
+
+<span class="fc" id="L171">        question.accept(answer, actor, actorManagesCourse);</span>
+<span class="fc" id="L172">        questions.save(question);</span>
+
+<span class="fc" id="L174">        events.publish(new AnswerAcceptedEvent(</span>
+<span class="fc" id="L175">                EventIds.next(),</span>
+                now,
+<span class="fc" id="L177">                answer.id(),</span>
+<span class="fc" id="L178">                question.id(),</span>
+<span class="fc" id="L179">                answer.authorId(),</span>
+<span class="fc" id="L180">                question.authorId(),</span>
+<span class="fc" id="L181">                actor.userId(),</span>
+<span class="fc" id="L182">                question.title().value()</span>
+        ));
+
+<span class="fc" id="L185">        audit.record(</span>
+                &quot;ANSWER_ACCEPTED&quot;,
+<span class="fc" id="L187">                actor.userId(),</span>
+                &quot;ANSWER&quot;,
+<span class="fc" id="L189">                String.valueOf(answer.id()),</span>
+<span class="fc" id="L190">                &quot;questionId=&quot; + question.id()</span>
+        );
+
+<span class="fc" id="L193">        listCache.invalidateAll();</span>
+<span class="fc" id="L194">    }</span>
+
+    /**
+     * 教师认证回答。
+     */
+    @Transactional
+    public void endorse(Actor actor, long answerId) {
+<span class="fc" id="L201">        Answer answer = loadAnswer(answerId);</span>
+<span class="fc" id="L202">        Question question = loadQuestion(answer.questionId());</span>
+
+<span class="fc" id="L204">        boolean actorManagesCourse =</span>
+<span class="fc" id="L205">                identity.canManageCourse(actor.userId(), question.courseId());</span>
+
+<span class="fc" id="L207">        answer.endorse(actor, actorManagesCourse);</span>
+<span class="fc" id="L208">        answers.save(answer);</span>
+
+<span class="fc" id="L210">        Instant now = clock.instant();</span>
+
+<span class="fc" id="L212">        events.publish(new AnswerEndorsedEvent(</span>
+<span class="fc" id="L213">                EventIds.next(),</span>
+                now,
+<span class="fc" id="L215">                answer.id(),</span>
+<span class="fc" id="L216">                question.id(),</span>
+<span class="fc" id="L217">                answer.authorId(),</span>
+<span class="fc" id="L218">                actor.userId(),</span>
+<span class="fc" id="L219">                question.title().value()</span>
+        ));
+
+<span class="fc" id="L222">        listCache.invalidateAll();</span>
+<span class="fc" id="L223">    }</span>
+
+    /**
+     * 根据 ID 获取问题；不存在时抛出领域异常。
+     */
+    private Question loadQuestion(long id) {
+<span class="fc" id="L229">        return questions.findById(id)</span>
+<span class="fc" id="L230">                .orElseThrow(() -&gt; new NotFoundException(</span>
+                        &quot;QA-4001&quot;,
+                        &quot;问题不存在，id=&quot; + id
+                ));
+    }
+
+    /**
+     * 根据 ID 获取回答；不存在时抛出领域异常。
+     */
+    private Answer loadAnswer(long id) {
+<span class="fc" id="L240">        return answers.findById(id)</span>
+<span class="fc" id="L241">                .orElseThrow(() -&gt; new NotFoundException(</span>
+                        &quot;QA-4002&quot;,
+                        &quot;回答不存在，id=&quot; + id
+                ));
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

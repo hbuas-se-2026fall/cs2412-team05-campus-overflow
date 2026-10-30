@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Vote.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Q&amp;A 问答核心 :: domain（纯 Java）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.qa.domain</a> &gt; <span class="el_source">Vote.java</span></div><h1>Vote.java</h1><pre class="source lang-java linenums">
+package com.campusoverflow.qa.domain;
+
+import com.campusoverflow.shared.domain.BusinessRuleException;
+import java.time.Instant;
+
+/** 投票聚合：同一用户对同一内容仅一票（数据库唯一约束兜底），值为 +1 或 -1；撤销即删除。 */
+public class Vote {
+
+    private Long id;
+    private final long voterId;
+    private final TargetType targetType;
+    private final long targetId;
+    private int value;
+    private Instant updatedAt;
+
+<span class="fc" id="L17">    private Vote(Long id, long voterId, TargetType targetType, long targetId, int value, Instant updatedAt) {</span>
+<span class="fc" id="L18">        this.id = id;</span>
+<span class="fc" id="L19">        this.voterId = voterId;</span>
+<span class="fc" id="L20">        this.targetType = targetType;</span>
+<span class="fc" id="L21">        this.targetId = targetId;</span>
+<span class="fc" id="L22">        this.value = value;</span>
+<span class="fc" id="L23">        this.updatedAt = updatedAt;</span>
+<span class="fc" id="L24">    }</span>
+
+    public static Vote cast(long voterId, long targetAuthorId, TargetType targetType, long targetId, int value,
+                            Instant now) {
+<span class="fc bfc" id="L28" title="All 2 branches covered.">        if (voterId == targetAuthorId) {</span>
+<span class="fc" id="L29">            throw new BusinessRuleException(&quot;QA-1015&quot;, &quot;不能给自己的内容投票&quot;);</span>
+        }
+
+<span class="fc" id="L32">        int checkedValue = checkValue(value);</span>
+<span class="fc" id="L33">        return new Vote(null, voterId, targetType, targetId, checkedValue, now);</span>
+    }
+
+    public static Vote reconstitute(Long id, long voterId, TargetType targetType, long targetId, int value,
+                                    Instant updatedAt) {
+<span class="fc" id="L38">        return new Vote(id, voterId, targetType, targetId, value, updatedAt);</span>
+    }
+
+    /** 改投，返回原值。 */
+    public int change(int newValue, Instant now) {
+<span class="fc" id="L43">        int checkedValue = checkValue(newValue);</span>
+<span class="fc" id="L44">        int oldValue = this.value;</span>
+<span class="fc" id="L45">        this.value = checkedValue;</span>
+<span class="fc" id="L46">        this.updatedAt = now;</span>
+<span class="fc" id="L47">        return oldValue;</span>
+    }
+
+    private static int checkValue(int value) {
+<span class="fc bfc" id="L51" title="All 4 branches covered.">        if (value != 1 &amp;&amp; value != -1) {</span>
+<span class="fc" id="L52">            throw new BusinessRuleException(&quot;QA-1001&quot;, &quot;投票值必须为 +1 或 -1&quot;);</span>
+        }
+<span class="fc" id="L54">        return value;</span>
+    }
+
+    public void assignId(long id) {
+<span class="fc" id="L58">        this.id = id;</span>
+<span class="fc" id="L59">    }</span>
+
+<span class="fc" id="L61">    public Long id() { return id; }</span>
+<span class="fc" id="L62">    public long voterId() { return voterId; }</span>
+<span class="fc" id="L63">    public TargetType targetType() { return targetType; }</span>
+<span class="fc" id="L64">    public long targetId() { return targetId; }</span>
+<span class="fc" id="L65">    public int value() { return value; }</span>
+<span class="fc" id="L66">    public Instant updatedAt() { return updatedAt; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>QuestionCommandService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Q&amp;A 问答核心 :: application（用例编排）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.qa.application.command</a> &gt; <span class="el_source">QuestionCommandService.java</span></div><h1>QuestionCommandService.java</h1><pre class="source lang-java linenums">package com.campusoverflow.qa.application.command;
+
+import com.campusoverflow.identity.api.IdentityApi;
+import com.campusoverflow.qa.api.event.ContentDeletedEvent;
+import com.campusoverflow.qa.api.event.QuestionEditedEvent;
+import com.campusoverflow.qa.api.event.QuestionPostedEvent;
+import com.campusoverflow.qa.application.port.ContentRenderer;
+import com.campusoverflow.qa.application.port.QuestionListCache;
+import com.campusoverflow.qa.domain.MarkdownBody;
+import com.campusoverflow.qa.domain.Question;
+import com.campusoverflow.qa.domain.QuestionRepository;
+import com.campusoverflow.qa.domain.TagRepository;
+import com.campusoverflow.qa.domain.Tags;
+import com.campusoverflow.qa.domain.Title;
+import com.campusoverflow.shared.audit.AuditTrail;
+import com.campusoverflow.shared.domain.NotFoundException;
+import com.campusoverflow.shared.event.EventIds;
+import com.campusoverflow.shared.event.IntegrationEventPublisher;
+import com.campusoverflow.shared.security.Actor;
+import java.time.Clock;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** 用例：发布 / 编辑 / 删除问题。 */
+@Service
+public class QuestionCommandService {
+
+    static final int PLAIN_TEXT_FOR_INDEX = 2000;
+
+    private final QuestionRepository questions;
+    private final TagRepository tags;
+    private final IdentityApi identity;
+    private final IntegrationEventPublisher events;
+    private final ContentRenderer renderer;
+    private final QuestionListCache listCache;
+    private final AuditTrail audit;
+    private final Clock clock;
+
+    public QuestionCommandService(QuestionRepository questions, TagRepository tags, IdentityApi identity,
+                                  IntegrationEventPublisher events, ContentRenderer renderer,
+<span class="nc" id="L44">                                  QuestionListCache listCache, AuditTrail audit, Clock clock) {</span>
+<span class="nc" id="L45">        this.questions = questions;</span>
+<span class="nc" id="L46">        this.tags = tags;</span>
+<span class="nc" id="L47">        this.identity = identity;</span>
+<span class="nc" id="L48">        this.events = events;</span>
+<span class="nc" id="L49">        this.renderer = renderer;</span>
+<span class="nc" id="L50">        this.listCache = listCache;</span>
+<span class="nc" id="L51">        this.audit = audit;</span>
+<span class="nc" id="L52">        this.clock = clock;</span>
+<span class="nc" id="L53">    }</span>
+
+    @Transactional
+    public long post(Actor actor, PostQuestionCommand cmd) {
+<span class="nc" id="L57">        Question question = Question.post(actor.userId(), cmd.courseId(), new Title(cmd.title()),</span>
+<span class="nc" id="L58">                MarkdownBody.ofQuestion(cmd.body()), Tags.of(cmd.tags()), clock.instant());</span>
+<span class="nc" id="L59">        Question saved = questions.save(question);</span>
+
+<span class="nc" id="L61">        tags.adjustUsage(saved.tags().names(), 1);</span>
+<span class="nc" id="L62">        events.publish(new QuestionPostedEvent(EventIds.next(), saved.createdAt(), saved.id(), saved.authorId(),</span>
+<span class="nc" id="L63">                saved.courseId(), saved.title().value(),</span>
+<span class="nc" id="L64">                renderer.toPlainText(saved.body().value(), PLAIN_TEXT_FOR_INDEX), saved.tags().names()));</span>
+<span class="nc" id="L65">        audit.record(&quot;QUESTION_POSTED&quot;, actor.userId(), &quot;QUESTION&quot;, String.valueOf(saved.id()), null);</span>
+<span class="nc" id="L66">        listCache.invalidateAll();</span>
+<span class="nc" id="L67">        return saved.id();</span>
+    }
+
+    @Transactional
+    public void edit(Actor actor, long questionId, EditQuestionCommand cmd) {
+<span class="nc" id="L72">        Question question = load(questionId);</span>
+<span class="nc" id="L73">        Set&lt;String&gt; previousTags = new HashSet&lt;&gt;(question.tags().names());</span>
+<span class="nc" id="L74">        boolean actorManagesCourse = identity.canManageCourse(actor.userId(), question.courseId());</span>
+
+<span class="nc" id="L76">        question.edit(actor, actorManagesCourse, new Title(cmd.title()), MarkdownBody.ofQuestion(cmd.body()),</span>
+<span class="nc" id="L77">                Tags.of(cmd.tags()), clock.instant());</span>
+<span class="nc" id="L78">        questions.save(question);</span>
+
+<span class="nc" id="L80">        Set&lt;String&gt; currentTags = new HashSet&lt;&gt;(question.tags().names());</span>
+<span class="nc" id="L81">        Set&lt;String&gt; removed = new HashSet&lt;&gt;(previousTags);</span>
+<span class="nc" id="L82">        removed.removeAll(currentTags);</span>
+<span class="nc" id="L83">        Set&lt;String&gt; added = new HashSet&lt;&gt;(currentTags);</span>
+<span class="nc" id="L84">        added.removeAll(previousTags);</span>
+<span class="nc" id="L85">        tags.adjustUsage(removed, -1);</span>
+<span class="nc" id="L86">        tags.adjustUsage(added, 1);</span>
+
+<span class="nc" id="L88">        events.publish(new QuestionEditedEvent(EventIds.next(), clock.instant(), question.id(),</span>
+<span class="nc" id="L89">                question.title().value(), renderer.toPlainText(question.body().value(), PLAIN_TEXT_FOR_INDEX),</span>
+<span class="nc" id="L90">                List.copyOf(currentTags)));</span>
+<span class="nc" id="L91">        audit.record(&quot;QUESTION_EDITED&quot;, actor.userId(), &quot;QUESTION&quot;, String.valueOf(question.id()), null);</span>
+<span class="nc" id="L92">        listCache.invalidateAll();</span>
+<span class="nc" id="L93">    }</span>
+
+    @Transactional
+    public void delete(Actor actor, long questionId) {
+<span class="nc" id="L97">        Question question = load(questionId);</span>
+<span class="nc" id="L98">        boolean actorManagesCourse = identity.canManageCourse(actor.userId(), question.courseId());</span>
+<span class="nc" id="L99">        question.softDelete(actor, actorManagesCourse, clock.instant());</span>
+<span class="nc" id="L100">        questions.save(question);</span>
+
+<span class="nc" id="L102">        tags.adjustUsage(question.tags().names(), -1);</span>
+<span class="nc" id="L103">        events.publish(new ContentDeletedEvent(EventIds.next(), clock.instant(), &quot;QUESTION&quot;, question.id(),</span>
+<span class="nc" id="L104">                question.id()));</span>
+<span class="nc" id="L105">        audit.record(&quot;QUESTION_DELETED&quot;, actor.userId(), &quot;QUESTION&quot;, String.valueOf(question.id()), null);</span>
+<span class="nc" id="L106">        listCache.invalidateAll();</span>
+<span class="nc" id="L107">    }</span>
+
+    private Question load(long questionId) {
+<span class="nc" id="L110">        return questions.findById(questionId)</span>
+<span class="nc" id="L111">                .orElseThrow(() -&gt; new NotFoundException(&quot;QA-4001&quot;, &quot;问题不存在，id=&quot; + questionId));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

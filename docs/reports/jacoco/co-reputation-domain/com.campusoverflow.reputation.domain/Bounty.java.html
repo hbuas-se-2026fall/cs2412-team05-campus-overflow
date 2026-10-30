@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Bounty.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Reputation 声誉与激励 :: domain（纯 Java）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.reputation.domain</a> &gt; <span class="el_source">Bounty.java</span></div><h1>Bounty.java</h1><pre class="source lang-java linenums">package com.campusoverflow.reputation.domain;
+
+import com.campusoverflow.shared.domain.BusinessRuleException;
+import com.campusoverflow.shared.domain.ConflictException;
+import com.campusoverflow.shared.domain.ForbiddenException;
+import com.campusoverflow.shared.security.Actor;
+import java.time.Duration;
+import java.time.Instant;
+
+public class Bounty {
+
+    public static final int MIN_POINTS = 10;
+    public static final int MAX_POINTS = 500;
+    public static final int MAX_DAYS = 14;
+
+    private Long id;
+    private final long questionId;
+    private final long sponsorId;
+    private final int points;
+    private BountyStatus status;
+    private final Instant createdAt;
+    private final Instant expiresAt;
+    private Long winnerId;
+    private Long answerId;
+    private Instant closedAt;
+
+    private Bounty(Long id, long questionId, long sponsorId, int points,
+                   BountyStatus status, Instant createdAt, Instant expiresAt,
+<span class="fc" id="L29">                   Long winnerId, Long answerId, Instant closedAt) {</span>
+<span class="fc" id="L30">        this.id = id;</span>
+<span class="fc" id="L31">        this.questionId = questionId;</span>
+<span class="fc" id="L32">        this.sponsorId = sponsorId;</span>
+<span class="fc" id="L33">        this.points = points;</span>
+<span class="fc" id="L34">        this.status = status;</span>
+<span class="fc" id="L35">        this.createdAt = createdAt;</span>
+<span class="fc" id="L36">        this.expiresAt = expiresAt;</span>
+<span class="fc" id="L37">        this.winnerId = winnerId;</span>
+<span class="fc" id="L38">        this.answerId = answerId;</span>
+<span class="fc" id="L39">        this.closedAt = closedAt;</span>
+<span class="fc" id="L40">    }</span>
+
+    public static Bounty open(long questionId, boolean questionOpen,
+                              Actor sponsor, boolean sponsorManagesCourse,
+                              int points, int days, Instant now) {
+<span class="pc bpc" id="L45" title="1 of 4 branches missed.">        if (sponsor == null || !sponsorManagesCourse</span>
+<span class="pc bpc" id="L46" title="1 of 2 branches missed.">                || !(sponsor.role() == com.campusoverflow.shared.security.Role.TEACHER</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">                || sponsor.role() == com.campusoverflow.shared.security.Role.TA</span>
+<span class="nc bnc" id="L48" title="All 2 branches missed.">                || sponsor.role() == com.campusoverflow.shared.security.Role.ADMIN)) {</span>
+<span class="fc" id="L49">            throw new ForbiddenException(&quot;REP-3001&quot;, &quot;只有课程管理者可以发起悬赏&quot;);</span>
+        }
+
+<span class="pc bpc" id="L52" title="1 of 4 branches missed.">        if (questionId &lt;= 0 || !questionOpen) {</span>
+<span class="fc" id="L53">            throw new BusinessRuleException(&quot;REP-1011&quot;, &quot;问题不存在、已删除或已被采纳&quot;);</span>
+        }
+
+<span class="pc bpc" id="L56" title="1 of 4 branches missed.">        if (points &lt; MIN_POINTS || points &gt; MAX_POINTS) {</span>
+<span class="fc" id="L57">            throw new BusinessRuleException(&quot;REP-1003&quot;, &quot;悬赏积分必须在 10 到 500 之间&quot;);</span>
+        }
+
+<span class="pc bpc" id="L60" title="2 of 4 branches missed.">        if (days &lt; 1 || days &gt; MAX_DAYS) {</span>
+<span class="nc" id="L61">            throw new BusinessRuleException(&quot;REP-1004&quot;, &quot;悬赏期限必须在 1 到 14 天之间&quot;);</span>
+        }
+
+<span class="pc bpc" id="L64" title="1 of 2 branches missed.">        if (now == null) {</span>
+<span class="nc" id="L65">            throw new BusinessRuleException(&quot;REP-1005&quot;, &quot;发起时间不能为空&quot;);</span>
+        }
+
+<span class="fc" id="L68">        return new Bounty(null, questionId, sponsor.userId(), points,</span>
+<span class="fc" id="L69">                BountyStatus.OPEN, now, now.plus(Duration.ofDays(days)),</span>
+                null, null, null);
+    }
+
+    public static Bounty reconstitute(Long id, long questionId, long sponsorId,
+                                      int points, BountyStatus status,
+                                      Instant createdAt, Instant expiresAt,
+                                      Long winnerId, Long answerId, Instant closedAt) {
+<span class="nc" id="L77">        return new Bounty(id, questionId, sponsorId, points, status,</span>
+                createdAt, expiresAt, winnerId, answerId, closedAt);
+    }
+
+    public void award(long answerId, long winnerId, Instant now) {
+<span class="fc" id="L82">        ensureOpen();</span>
+
+<span class="pc bpc" id="L84" title="3 of 6 branches missed.">        if (answerId &lt;= 0 || winnerId &lt;= 0 || now == null) {</span>
+<span class="nc" id="L85">            throw new BusinessRuleException(&quot;REP-1006&quot;, &quot;获奖回答、用户或时间不合法&quot;);</span>
+        }
+
+<span class="fc bfc" id="L88" title="All 2 branches covered.">        if (winnerId == sponsorId) {</span>
+<span class="fc" id="L89">            throw new BusinessRuleException(&quot;REP-1007&quot;, &quot;发起人不能获得自己的悬赏&quot;);</span>
+        }
+
+<span class="pc bpc" id="L92" title="1 of 2 branches missed.">        if (isDue(now)) {</span>
+<span class="nc" id="L93">            throw new ConflictException(&quot;REP-2002&quot;, &quot;悬赏已到期，不能再结算&quot;);</span>
+        }
+
+<span class="fc" id="L96">        this.answerId = answerId;</span>
+<span class="fc" id="L97">        this.winnerId = winnerId;</span>
+<span class="fc" id="L98">        this.status = BountyStatus.AWARDED;</span>
+<span class="fc" id="L99">        this.closedAt = now;</span>
+<span class="fc" id="L100">    }</span>
+
+    /**
+     * 关闭悬赏。调用方应先确认悬赏到期，或采纳的是发起人自己的回答。
+     */
+    public void close(Instant now) {
+<span class="nc" id="L106">        ensureOpen();</span>
+
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (now == null) {</span>
+<span class="nc" id="L109">            throw new BusinessRuleException(&quot;REP-1005&quot;, &quot;关闭时间不能为空&quot;);</span>
+        }
+
+<span class="nc" id="L112">        this.status = BountyStatus.EXPIRED;</span>
+<span class="nc" id="L113">        this.closedAt = now;</span>
+<span class="nc" id="L114">    }</span>
+
+    public boolean isDue(Instant now) {
+<span class="pc bpc" id="L117" title="1 of 4 branches missed.">        return now != null &amp;&amp; !now.isBefore(expiresAt);</span>
+    }
+
+    private void ensureOpen() {
+<span class="fc bfc" id="L121" title="All 2 branches covered.">        if (status != BountyStatus.OPEN) {</span>
+<span class="fc" id="L122">            throw new ConflictException(&quot;REP-2003&quot;, &quot;悬赏已结束，不能重复操作&quot;);</span>
+        }
+<span class="fc" id="L124">    }</span>
+
+    public void assignId(long id) {
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        if (this.id != null) {</span>
+<span class="nc" id="L128">            throw new IllegalStateException(&quot;ID 已分配&quot;);</span>
+        }
+<span class="nc bnc" id="L130" title="All 2 branches missed.">        if (id &lt;= 0) {</span>
+<span class="nc" id="L131">            throw new IllegalArgumentException(&quot;ID 必须大于零&quot;);</span>
+        }
+<span class="nc" id="L133">        this.id = id;</span>
+<span class="nc" id="L134">    }</span>
+
+<span class="nc" id="L136">    public Long id() { return id; }</span>
+<span class="nc" id="L137">    public long questionId() { return questionId; }</span>
+<span class="nc" id="L138">    public long sponsorId() { return sponsorId; }</span>
+<span class="nc" id="L139">    public int points() { return points; }</span>
+<span class="fc" id="L140">    public BountyStatus status() { return status; }</span>
+<span class="nc" id="L141">    public Instant createdAt() { return createdAt; }</span>
+<span class="fc" id="L142">    public Instant expiresAt() { return expiresAt; }</span>
+<span class="fc" id="L143">    public Long winnerId() { return winnerId; }</span>
+<span class="nc" id="L144">    public Long answerId() { return answerId; }</span>
+<span class="nc" id="L145">    public Instant closedAt() { return closedAt; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

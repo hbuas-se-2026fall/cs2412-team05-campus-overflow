@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserProfileService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Identity 身份与认证 :: application（用例编排）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.identity.application</a> &gt; <span class="el_source">UserProfileService.java</span></div><h1>UserProfileService.java</h1><pre class="source lang-java linenums">package com.campusoverflow.identity.application;
+
+import com.campusoverflow.identity.domain.User;
+import com.campusoverflow.identity.domain.UserRepository;
+import com.campusoverflow.shared.domain.ConflictException;
+import com.campusoverflow.shared.domain.NotFoundException;
+import com.campusoverflow.shared.security.Actor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** 用例：本人修改公开资料与联系方式。 */
+@Service
+public class UserProfileService {
+
+    private final UserRepository users;
+    private final UserQueryService userQuery;
+
+<span class="fc" id="L18">    public UserProfileService(UserRepository users, UserQueryService userQuery) {</span>
+<span class="fc" id="L19">        this.users = users;</span>
+<span class="fc" id="L20">        this.userQuery = userQuery;</span>
+<span class="fc" id="L21">    }</span>
+
+    @Transactional
+    public MeView update(Actor actor, UpdateProfileCommand cmd) {
+<span class="fc" id="L25">        User user = users.findById(actor.userId())</span>
+<span class="pc" id="L26">                .orElseThrow(() -&gt; new NotFoundException(&quot;ID-4001&quot;, &quot;用户不存在&quot;));</span>
+<span class="fc" id="L27">        user.updateProfile(cmd.displayName(), cmd.email(), cmd.college(), cmd.className());</span>
+<span class="fc" id="L28">        ensureUnique(user);</span>
+<span class="fc" id="L29">        users.save(user);</span>
+<span class="fc" id="L30">        return userQuery.me(actor.userId());</span>
+    }
+
+    private void ensureUnique(User user) {
+<span class="fc" id="L34">        users.findByDisplayName(user.displayName())</span>
+<span class="pc bnc" id="L35" title="All 2 branches missed.">                .filter(other -&gt; !other.id().equals(user.id()))</span>
+<span class="fc" id="L36">                .ifPresent(other -&gt; {</span>
+<span class="nc" id="L37">                    throw new ConflictException(&quot;ID-2002&quot;, &quot;该昵称已被使用&quot;);</span>
+                });
+<span class="fc" id="L39">        users.findByEmail(user.email())</span>
+<span class="pc bnc" id="L40" title="All 2 branches missed.">                .filter(other -&gt; !other.id().equals(user.id()))</span>
+<span class="fc" id="L41">                .ifPresent(other -&gt; {</span>
+<span class="nc" id="L42">                    throw new ConflictException(&quot;ID-2003&quot;, &quot;该邮箱已被使用&quot;);</span>
+                });
+<span class="fc" id="L44">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

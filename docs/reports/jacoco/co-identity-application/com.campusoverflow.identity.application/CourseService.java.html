@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>CourseService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Identity 身份与认证 :: application（用例编排）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.identity.application</a> &gt; <span class="el_source">CourseService.java</span></div><h1>CourseService.java</h1><pre class="source lang-java linenums">package com.campusoverflow.identity.application;
+
+import com.campusoverflow.identity.domain.Course;
+import com.campusoverflow.identity.domain.CourseMember;
+import com.campusoverflow.identity.domain.CourseRepository;
+import com.campusoverflow.identity.domain.CourseRole;
+import com.campusoverflow.identity.domain.CourseMemberStatus;
+import com.campusoverflow.identity.domain.User;
+import com.campusoverflow.identity.domain.UserRepository;
+import com.campusoverflow.shared.domain.ConflictException;
+import com.campusoverflow.shared.domain.ForbiddenException;
+import com.campusoverflow.shared.domain.NotFoundException;
+import com.campusoverflow.shared.security.Actor;
+import java.time.Clock;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** 用例：课程与课程成员管理。 */
+@Service
+public class CourseService {
+
+    private final CourseRepository courses;
+    private final UserRepository users;
+    private final Clock clock;
+
+<span class="fc" id="L30">    public CourseService(CourseRepository courses, UserRepository users, Clock clock) {</span>
+<span class="fc" id="L31">        this.courses = courses;</span>
+<span class="fc" id="L32">        this.users = users;</span>
+<span class="fc" id="L33">        this.clock = clock;</span>
+<span class="fc" id="L34">    }</span>
+
+    @Transactional
+    public long create(Actor actor, CreateCourseCommand cmd) {
+<span class="nc" id="L38">        Course course = Course.create(actor, cmd.code(), cmd.name(), cmd.term(), clock.instant());</span>
+<span class="nc bnc" id="L39" title="All 2 branches missed.">        if (courses.existsByCodeAndTerm(course.code(), course.term())) {</span>
+<span class="nc" id="L40">            throw new ConflictException(&quot;ID-2004&quot;, &quot;该学期已存在同代码课程&quot;);</span>
+        }
+<span class="nc" id="L42">        Course saved = courses.save(course);</span>
+<span class="nc" id="L43">        courses.saveMember(CourseMember.teacher(saved.id(), actor.userId(), clock.instant()));</span>
+<span class="nc" id="L44">        return saved.id();</span>
+    }
+
+    /** 内部直接加入课程，供演示数据等受信任流程使用。 */
+    @Transactional
+    public void join(Actor actor, long courseId) {
+<span class="nc" id="L50">        loadCourse(courseId);</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">        if (courses.findMember(courseId, actor.userId()).isPresent()) {</span>
+<span class="nc" id="L52">            throw new ConflictException(&quot;ID-2005&quot;, &quot;你已加入该课程&quot;);</span>
+        }
+<span class="nc" id="L54">        courses.saveMember(CourseMember.student(courseId, actor.userId(), clock.instant()));</span>
+<span class="nc" id="L55">    }</span>
+
+    /** 学生提交选课申请，教师或课程助教审核后才成为正式成员。 */
+    @Transactional
+    public void apply(Actor actor, long courseId) {
+<span class="fc" id="L60">        loadCourse(courseId);</span>
+<span class="fc" id="L61">        CourseMember application = courses.findMember(courseId, actor.userId())</span>
+<span class="fc" id="L62">                .map(existing -&gt; {</span>
+<span class="pc bpc" id="L63" title="1 of 2 branches missed.">                    if (existing.status() == CourseMemberStatus.REJECTED) {</span>
+<span class="fc" id="L64">                        existing.reapply();</span>
+<span class="fc" id="L65">                        return existing;</span>
+                    }
+<span class="nc bnc" id="L67" title="All 2 branches missed.">                    String message = existing.isApproved() ? &quot;你已加入该课程&quot; : &quot;你的选课申请正在等待审核&quot;;</span>
+<span class="nc" id="L68">                    throw new ConflictException(&quot;ID-2005&quot;, message);</span>
+                })
+<span class="fc" id="L70">                .orElseGet(() -&gt; CourseMember.applicant(courseId, actor.userId(), clock.instant()));</span>
+<span class="fc" id="L71">        courses.saveMember(application);</span>
+<span class="fc" id="L72">    }</span>
+
+    @Transactional(readOnly = true)
+    public List&lt;CourseMemberView&gt; pendingApplications(Actor actor, long courseId) {
+<span class="fc" id="L76">        Course course = loadCourse(courseId);</span>
+<span class="fc" id="L77">        requireCourseManager(actor, course);</span>
+<span class="fc" id="L78">        List&lt;CourseMember&gt; pending = courses.findPendingMembers(courseId);</span>
+<span class="fc" id="L79">        Map&lt;Long, User&gt; byId = users.findAllById(pending.stream().map(CourseMember::userId).toList()).stream()</span>
+<span class="fc" id="L80">                .collect(Collectors.toMap(User::id, Function.identity()));</span>
+<span class="fc" id="L81">        return pending.stream()</span>
+<span class="fc" id="L82">                .map(m -&gt; new CourseMemberView(m.userId(),</span>
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">                        byId.containsKey(m.userId()) ? byId.get(m.userId()).displayName() : &quot;未知用户&quot;, m.role(),</span>
+<span class="fc" id="L84">                        m.joinedAt()))</span>
+<span class="fc" id="L85">                .toList();</span>
+    }
+
+    @Transactional
+    public void reviewApplication(Actor actor, long courseId, long userId, boolean approve) {
+<span class="fc" id="L90">        Course course = loadCourse(courseId);</span>
+<span class="fc" id="L91">        requireCourseManager(actor, course);</span>
+<span class="fc" id="L92">        CourseMember application = courses.findMember(courseId, userId)</span>
+<span class="pc" id="L93">                .orElseThrow(() -&gt; new NotFoundException(&quot;ID-4004&quot;, &quot;选课申请不存在&quot;));</span>
+<span class="pc bpc" id="L94" title="1 of 2 branches missed.">        if (approve) {</span>
+<span class="fc" id="L95">            application.approve();</span>
+        } else {
+<span class="nc" id="L97">            application.reject();</span>
+        }
+<span class="fc" id="L99">        courses.saveMember(application);</span>
+<span class="fc" id="L100">    }</span>
+
+    private void requireCourseManager(Actor actor, Course course) {
+<span class="pc bpc" id="L103" title="1 of 4 branches missed.">        boolean manages = actor.isAdmin() || course.teacherId() == actor.userId()</span>
+<span class="fc" id="L104">                || courses.findMember(course.id(), actor.userId())</span>
+<span class="pc bpc" id="L105" title="4 of 6 branches missed.">                .map(m -&gt; m.isApproved() &amp;&amp; m.role().canManage()).orElse(false);</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">        if (!manages) {</span>
+<span class="fc" id="L107">            throw new ForbiddenException(&quot;ID-3004&quot;, &quot;只有课程教师、助教或管理员可以审核选课申请&quot;);</span>
+        }
+<span class="fc" id="L109">    }</span>
+
+    /** 课程教师或管理员调整成员角色（例如任命助教）。 */
+    @Transactional
+    public void assignRole(Actor actor, long courseId, long userId, CourseRole role) {
+<span class="nc" id="L114">        Course course = loadCourse(courseId);</span>
+<span class="nc bnc" id="L115" title="All 4 branches missed.">        if (!actor.isAdmin() &amp;&amp; course.teacherId() != actor.userId()) {</span>
+<span class="nc" id="L116">            throw new ForbiddenException(&quot;ID-3003&quot;, &quot;只有课程教师或管理员可以调整成员角色&quot;);</span>
+        }
+<span class="nc" id="L118">        CourseMember member = courses.findMember(courseId, userId)</span>
+<span class="nc" id="L119">                .orElseThrow(() -&gt; new NotFoundException(&quot;ID-4003&quot;, &quot;该用户不是课程成员&quot;));</span>
+<span class="nc" id="L120">        member.changeRole(role);</span>
+<span class="nc" id="L121">        courses.saveMember(member);</span>
+<span class="nc" id="L122">    }</span>
+
+    @Transactional(readOnly = true)
+    public List&lt;CourseView&gt; listAll(Actor actorOrNull) {
+<span class="nc" id="L126">        List&lt;Course&gt; all = courses.findAll();</span>
+<span class="nc bnc" id="L127" title="All 2 branches missed.">        Map&lt;Long, CourseRole&gt; mine = actorOrNull == null ? Map.of()</span>
+<span class="nc" id="L128">                : courses.findMembershipsOfUser(actorOrNull.userId()).stream()</span>
+<span class="nc" id="L129">                        .collect(Collectors.toMap(CourseMember::courseId, CourseMember::role));</span>
+<span class="nc" id="L130">        return toViews(all, mine);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;CourseView&gt; myCourses(long userId) {
+<span class="nc" id="L135">        Map&lt;Long, CourseRole&gt; mine = courses.findMembershipsOfUser(userId).stream()</span>
+<span class="nc" id="L136">                .collect(Collectors.toMap(CourseMember::courseId, CourseMember::role));</span>
+<span class="nc" id="L137">        List&lt;Course&gt; list = courses.findAll().stream().filter(c -&gt; mine.containsKey(c.id())).toList();</span>
+<span class="nc" id="L138">        return toViews(list, mine);</span>
+    }
+
+    @Transactional(readOnly = true)
+    public List&lt;CourseMemberView&gt; members(long courseId) {
+<span class="nc" id="L143">        loadCourse(courseId);</span>
+<span class="nc" id="L144">        List&lt;CourseMember&gt; members = courses.findMembers(courseId);</span>
+<span class="nc" id="L145">        Map&lt;Long, User&gt; byId = users.findAllById(members.stream().map(CourseMember::userId).toList()).stream()</span>
+<span class="nc" id="L146">                .collect(Collectors.toMap(User::id, Function.identity()));</span>
+<span class="nc" id="L147">        return members.stream()</span>
+<span class="nc" id="L148">                .map(m -&gt; new CourseMemberView(m.userId(),</span>
+<span class="nc bnc" id="L149" title="All 2 branches missed.">                        byId.containsKey(m.userId()) ? byId.get(m.userId()).displayName() : &quot;未知用户&quot;, m.role(),</span>
+<span class="nc" id="L150">                        m.joinedAt()))</span>
+<span class="nc" id="L151">                .toList();</span>
+    }
+
+    private List&lt;CourseView&gt; toViews(List&lt;Course&gt; list, Map&lt;Long, CourseRole&gt; mine) {
+<span class="nc" id="L155">        Map&lt;Long, String&gt; teacherNames = users.findAllById(list.stream().map(Course::teacherId).distinct().toList())</span>
+<span class="nc" id="L156">                .stream().collect(Collectors.toMap(User::id, User::displayName));</span>
+<span class="nc" id="L157">        return list.stream()</span>
+<span class="nc" id="L158">                .map(c -&gt; new CourseView(c.id(), c.code(), c.name(), c.term(), c.teacherId(),</span>
+<span class="nc" id="L159">                        teacherNames.getOrDefault(c.teacherId(), &quot;—&quot;),</span>
+<span class="nc bnc" id="L160" title="All 2 branches missed.">                        mine.containsKey(c.id()) ? mine.get(c.id()).name() : null))</span>
+<span class="nc" id="L161">                .toList();</span>
+    }
+
+    private Course loadCourse(long courseId) {
+<span class="pc" id="L165">        return courses.findById(courseId).orElseThrow(() -&gt; new NotFoundException(&quot;ID-4002&quot;, &quot;课程不存在&quot;));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AdminUserService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Identity 身份与认证 :: application（用例编排）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.identity.application</a> &gt; <span class="el_source">AdminUserService.java</span></div><h1>AdminUserService.java</h1><pre class="source lang-java linenums">package com.campusoverflow.identity.application;
+
+import com.campusoverflow.identity.api.event.UserRegisteredEvent;
+import com.campusoverflow.identity.domain.PasswordHasher;
+import com.campusoverflow.identity.domain.PasswordPolicy;
+import com.campusoverflow.identity.domain.User;
+import com.campusoverflow.identity.domain.UserRepository;
+import com.campusoverflow.shared.audit.AuditTrail;
+import com.campusoverflow.shared.domain.ConflictException;
+import com.campusoverflow.shared.domain.ForbiddenException;
+import com.campusoverflow.shared.domain.NotFoundException;
+import com.campusoverflow.shared.event.EventIds;
+import com.campusoverflow.shared.event.IntegrationEventPublisher;
+import com.campusoverflow.shared.page.PageRequest;
+import com.campusoverflow.shared.page.PageResult;
+import com.campusoverflow.shared.security.Actor;
+import com.campusoverflow.shared.security.Role;
+import com.campusoverflow.shared.util.Masking;
+import java.time.Clock;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** 用例：管理员的用户管理（校园身份认证、创建教职工、调整角色）。 */
+@Service
+public class AdminUserService {
+
+    private final UserRepository users;
+    private final PasswordHasher hasher;
+    private final IntegrationEventPublisher events;
+    private final AuditTrail audit;
+    private final Clock clock;
+
+    public AdminUserService(UserRepository users, PasswordHasher hasher, IntegrationEventPublisher events,
+<span class="nc" id="L34">                            AuditTrail audit, Clock clock) {</span>
+<span class="nc" id="L35">        this.users = users;</span>
+<span class="nc" id="L36">        this.hasher = hasher;</span>
+<span class="nc" id="L37">        this.events = events;</span>
+<span class="nc" id="L38">        this.audit = audit;</span>
+<span class="nc" id="L39">        this.clock = clock;</span>
+<span class="nc" id="L40">    }</span>
+
+    @Transactional(readOnly = true)
+    public PageResult&lt;UserView&gt; listByVerification(Actor actor, boolean verified, PageRequest page) {
+<span class="nc" id="L44">        requireAdmin(actor);</span>
+<span class="nc" id="L45">        return users.findByVerified(verified, page).map(AdminUserService::toView);</span>
+    }
+
+    @Transactional
+    public void verify(Actor actor, long userId) {
+<span class="nc" id="L50">        User user = load(userId);</span>
+<span class="nc" id="L51">        user.verify(actor);</span>
+<span class="nc" id="L52">        users.save(user);</span>
+<span class="nc" id="L53">        audit.record(&quot;USER_VERIFIED&quot;, actor.userId(), &quot;USER&quot;, String.valueOf(userId), null);</span>
+<span class="nc" id="L54">    }</span>
+
+    @Transactional
+    public long createStaff(Actor actor, CreateStaffCommand cmd) {
+<span class="nc" id="L58">        PasswordPolicy.validate(cmd.password());</span>
+<span class="nc" id="L59">        User user = User.createStaff(actor, cmd.username(), cmd.displayName(), cmd.email(),</span>
+<span class="nc" id="L60">                hasher.hash(cmd.password()), cmd.role(), cmd.college(), clock.instant());</span>
+<span class="nc bnc" id="L61" title="All 4 branches missed.">        if (users.existsByUsername(user.username()) || users.existsByDisplayName(user.displayName())</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">                || users.existsByEmail(user.email())) {</span>
+<span class="nc" id="L63">            throw new ConflictException(&quot;ID-2001&quot;, &quot;工号、昵称或邮箱已被使用&quot;);</span>
+        }
+<span class="nc" id="L65">        User saved = users.save(user);</span>
+<span class="nc" id="L66">        events.publish(new UserRegisteredEvent(EventIds.next(), clock.instant(), saved.id(), saved.displayName(),</span>
+<span class="nc" id="L67">                saved.role()));</span>
+<span class="nc" id="L68">        audit.record(&quot;STAFF_CREATED&quot;, actor.userId(), &quot;USER&quot;, String.valueOf(saved.id()),</span>
+<span class="nc" id="L69">                saved.role() + &quot; &quot; + Masking.account(saved.username()));</span>
+<span class="nc" id="L70">        return saved.id();</span>
+    }
+
+    @Transactional
+    public void changeRole(Actor actor, long userId, Role role) {
+<span class="nc" id="L75">        User user = load(userId);</span>
+<span class="nc" id="L76">        Role old = user.role();</span>
+<span class="nc" id="L77">        user.changeRole(actor, role);</span>
+<span class="nc" id="L78">        users.save(user);</span>
+<span class="nc" id="L79">        audit.record(&quot;ROLE_CHANGED&quot;, actor.userId(), &quot;USER&quot;, String.valueOf(userId), old + &quot; -&gt; &quot; + role);</span>
+<span class="nc" id="L80">    }</span>
+
+    private User load(long userId) {
+<span class="nc" id="L83">        return users.findById(userId).orElseThrow(() -&gt; new NotFoundException(&quot;ID-4001&quot;, &quot;用户不存在&quot;));</span>
+    }
+
+    private static void requireAdmin(Actor actor) {
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        if (!actor.isAdmin()) {</span>
+<span class="nc" id="L88">            throw new ForbiddenException(&quot;ID-3001&quot;, &quot;仅管理员可执行该操作&quot;);</span>
+        }
+<span class="nc" id="L90">    }</span>
+
+    static UserView toView(User u) {
+<span class="nc" id="L93">        return new UserView(u.id(), Masking.account(u.username()), u.displayName(), u.role(), u.verified(),</span>
+<span class="nc" id="L94">                u.college(), u.className(), u.createdAt());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

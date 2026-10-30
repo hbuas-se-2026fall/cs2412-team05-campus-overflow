@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LedgerEntry.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Reputation 声誉与激励 :: domain（纯 Java）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.reputation.domain</a> &gt; <span class="el_source">LedgerEntry.java</span></div><h1>LedgerEntry.java</h1><pre class="source lang-java linenums">package com.campusoverflow.reputation.domain;
+
+import java.time.Instant;
+import java.util.Objects;
+
+/**
+ * 声誉账本流水（只追加，ADR-004）。(eventId, userId, reason) 唯一，使事件重复投递时天然幂等。
+ */
+public record LedgerEntry(Long id, long userId, String eventId, ReputationReason reason, int delta, String refType,
+                          long refId, Instant createdAt) {
+
+<span class="fc" id="L12">    public LedgerEntry {</span>
+<span class="fc" id="L13">        Objects.requireNonNull(eventId);</span>
+<span class="fc" id="L14">        Objects.requireNonNull(reason);</span>
+<span class="fc" id="L15">    }</span>
+
+    public static LedgerEntry of(long userId, String eventId, ReputationReason reason, int delta, String refType,
+                                 long refId, Instant now) {
+<span class="fc" id="L19">        return new LedgerEntry(null, userId, eventId, reason, delta, refType, refId, now);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
