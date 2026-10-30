@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FieldEncryptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Identity 身份与认证 :: infrastructure（持久化与适配器）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.identity.infrastructure.crypto</a> &gt; <span class="el_source">FieldEncryptor.java</span></div><h1>FieldEncryptor.java</h1><pre class="source lang-java linenums">package com.campusoverflow.identity.infrastructure.crypto;
+
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.SecureRandom;
+import java.util.Base64;
+import java.util.HexFormat;
+import javax.crypto.Cipher;
+import javax.crypto.Mac;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+/**
+ * 个人信息字段加密（AES-256-GCM）与可检索摘要（HMAC-SHA256）。
+ * 密钥来自环境变量 CO_FIELD_KEY（Base64 编码的 32 字节），切勿提交到代码仓库。
+ */
+@Component
+public class FieldEncryptor {
+
+    private static final int IV_LENGTH = 12;
+    private static final int TAG_BITS = 128;
+
+    private final SecretKeySpec aesKey;
+    private final SecretKeySpec macKey;
+<span class="nc" id="L28">    private final SecureRandom random = new SecureRandom();</span>
+
+<span class="nc" id="L30">    public FieldEncryptor(@Value(&quot;${co.security.field-key}&quot;) String base64Key) {</span>
+<span class="nc" id="L31">        byte[] key = Base64.getDecoder().decode(base64Key);</span>
+<span class="nc bnc" id="L32" title="All 2 branches missed.">        if (key.length != 32) {</span>
+<span class="nc" id="L33">            throw new IllegalStateException(&quot;co.security.field-key 必须是 Base64 编码的 32 字节密钥&quot;);</span>
+        }
+<span class="nc" id="L35">        this.aesKey = new SecretKeySpec(key, &quot;AES&quot;);</span>
+<span class="nc" id="L36">        this.macKey = new SecretKeySpec(key, &quot;HmacSHA256&quot;);</span>
+<span class="nc" id="L37">    }</span>
+
+    public String encrypt(String plain) {
+        try {
+<span class="nc" id="L41">            byte[] iv = new byte[IV_LENGTH];</span>
+<span class="nc" id="L42">            random.nextBytes(iv);</span>
+<span class="nc" id="L43">            Cipher cipher = Cipher.getInstance(&quot;AES/GCM/NoPadding&quot;);</span>
+<span class="nc" id="L44">            cipher.init(Cipher.ENCRYPT_MODE, aesKey, new GCMParameterSpec(TAG_BITS, iv));</span>
+<span class="nc" id="L45">            byte[] ct = cipher.doFinal(plain.getBytes(StandardCharsets.UTF_8));</span>
+<span class="nc" id="L46">            return Base64.getEncoder().encodeToString(ByteBuffer.allocate(iv.length + ct.length).put(iv).put(ct).array());</span>
+<span class="nc" id="L47">        } catch (GeneralSecurityException e) {</span>
+<span class="nc" id="L48">            throw new IllegalStateException(&quot;字段加密失败&quot;, e);</span>
+        }
+    }
+
+    public String decrypt(String encoded) {
+        try {
+<span class="nc" id="L54">            byte[] all = Base64.getDecoder().decode(encoded);</span>
+<span class="nc" id="L55">            Cipher cipher = Cipher.getInstance(&quot;AES/GCM/NoPadding&quot;);</span>
+<span class="nc" id="L56">            cipher.init(Cipher.DECRYPT_MODE, aesKey, new GCMParameterSpec(TAG_BITS, all, 0, IV_LENGTH));</span>
+<span class="nc" id="L57">            return new String(cipher.doFinal(all, IV_LENGTH, all.length - IV_LENGTH), StandardCharsets.UTF_8);</span>
+<span class="nc" id="L58">        } catch (GeneralSecurityException e) {</span>
+<span class="nc" id="L59">            throw new IllegalStateException(&quot;字段解密失败（密钥是否被更换？）&quot;, e);</span>
+        }
+    }
+
+    /** 确定性摘要，用于唯一性约束与精确查找，不可逆。 */
+    public String digest(String plain) {
+        try {
+<span class="nc" id="L66">            Mac mac = Mac.getInstance(&quot;HmacSHA256&quot;);</span>
+<span class="nc" id="L67">            mac.init(macKey);</span>
+<span class="nc" id="L68">            return HexFormat.of().formatHex(mac.doFinal(plain.toLowerCase().getBytes(StandardCharsets.UTF_8)));</span>
+<span class="nc" id="L69">        } catch (GeneralSecurityException e) {</span>
+<span class="nc" id="L70">            throw new IllegalStateException(&quot;摘要计算失败&quot;, e);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

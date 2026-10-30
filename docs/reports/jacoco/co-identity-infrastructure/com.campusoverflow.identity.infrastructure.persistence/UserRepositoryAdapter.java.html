@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserRepositoryAdapter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Identity 身份与认证 :: infrastructure（持久化与适配器）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.identity.infrastructure.persistence</a> &gt; <span class="el_source">UserRepositoryAdapter.java</span></div><h1>UserRepositoryAdapter.java</h1><pre class="source lang-java linenums">package com.campusoverflow.identity.infrastructure.persistence;
+
+import com.campusoverflow.identity.domain.User;
+import com.campusoverflow.identity.domain.UserRepository;
+import com.campusoverflow.identity.domain.UserStatus;
+import com.campusoverflow.identity.infrastructure.crypto.FieldEncryptor;
+import com.campusoverflow.shared.domain.ConflictException;
+import com.campusoverflow.shared.page.PageRequest;
+import com.campusoverflow.shared.page.PageResult;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Repository;
+
+/** 仓储适配器：实现领域端口，负责领域对象与 JPA 实体之间的映射（手写映射器，见 ADR-008）。 */
+@Repository
+public class UserRepositoryAdapter implements UserRepository {
+
+    private final UserJpaRepository jpa;
+    private final FieldEncryptor encryptor;
+
+<span class="fc" id="L25">    public UserRepositoryAdapter(UserJpaRepository jpa, FieldEncryptor encryptor) {</span>
+<span class="fc" id="L26">        this.jpa = jpa;</span>
+<span class="fc" id="L27">        this.encryptor = encryptor;</span>
+<span class="fc" id="L28">    }</span>
+
+    @Override
+    public Optional&lt;User&gt; findById(long id) {
+<span class="nc" id="L32">        return jpa.findById(id).map(this::toDomain);</span>
+    }
+
+    @Override
+    public Optional&lt;User&gt; findByUsername(String username) {
+<span class="nc" id="L37">        return jpa.findByUsername(username).map(this::toDomain);</span>
+    }
+
+    @Override
+    public Optional&lt;User&gt; findByDisplayName(String displayName) {
+<span class="nc" id="L42">        return jpa.findByDisplayName(displayName).map(this::toDomain);</span>
+    }
+
+    @Override
+    public Optional&lt;User&gt; findByEmail(String email) {
+<span class="nc" id="L47">        return jpa.findByEmailHash(encryptor.digest(email)).map(this::toDomain);</span>
+    }
+
+    @Override
+    public boolean existsByUsername(String username) {
+<span class="nc" id="L52">        return jpa.existsByUsername(username);</span>
+    }
+
+    @Override
+    public boolean existsByDisplayName(String displayName) {
+<span class="nc" id="L57">        return jpa.existsByDisplayName(displayName);</span>
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+<span class="nc" id="L62">        return jpa.existsByEmailHash(encryptor.digest(email));</span>
+    }
+
+    @Override
+    public List&lt;User&gt; findAllById(Collection&lt;Long&gt; ids) {
+<span class="nc" id="L67">        return jpa.findAllById(ids).stream().map(this::toDomain).toList();</span>
+    }
+
+    @Override
+    public PageResult&lt;User&gt; findByVerified(boolean verified, PageRequest page) {
+<span class="nc" id="L72">        Page&lt;UserJpaEntity&gt; p = jpa.findByVerified(verified,</span>
+<span class="nc" id="L73">                org.springframework.data.domain.PageRequest.of(page.page() - 1, page.size(),</span>
+<span class="nc" id="L74">                        Sort.by(Sort.Direction.DESC, &quot;createdAt&quot;)));</span>
+<span class="nc" id="L75">        return new PageResult&lt;&gt;(p.getContent().stream().map(this::toDomain).toList(), p.getTotalElements(),</span>
+<span class="nc" id="L76">                page.page(), page.size());</span>
+    }
+
+    @Override
+    public User save(User user) {
+<span class="pc bpc" id="L81" title="1 of 2 branches missed.">        UserJpaEntity e = user.id() == null</span>
+<span class="nc" id="L82">                ? new UserJpaEntity(user.username(), user.createdAt())</span>
+<span class="fc" id="L83">                : jpa.findById(user.id()).orElseThrow();</span>
+<span class="fc" id="L84">        e.setDisplayName(user.displayName());</span>
+<span class="fc" id="L85">        e.setEmailCipher(encryptor.encrypt(user.email()));</span>
+<span class="fc" id="L86">        e.setEmailHash(encryptor.digest(user.email()));</span>
+<span class="fc" id="L87">        e.setPasswordHash(user.passwordHash());</span>
+<span class="fc" id="L88">        e.setRole(user.role());</span>
+<span class="fc" id="L89">        e.setStatus(user.status().name());</span>
+<span class="fc" id="L90">        e.setVerified(user.verified());</span>
+<span class="fc" id="L91">        e.setCollege(user.college());</span>
+<span class="fc" id="L92">        e.setClassName(user.className());</span>
+        // saveAndFlush 让唯一约束冲突当场暴露，以便按约束名翻译为业务错误码（并发兜底，见 ensureUnique 先查后写的窗口）。
+        UserJpaEntity saved;
+        try {
+<span class="nc" id="L96">            saved = jpa.saveAndFlush(e);</span>
+<span class="fc" id="L97">        } catch (DataIntegrityViolationException ex) {</span>
+<span class="fc" id="L98">            String chain = exceptionChainMessages(ex);</span>
+<span class="fc bfc" id="L99" title="All 2 branches covered.">            if (chain.contains(&quot;uk_user_display_name&quot;)) {</span>
+<span class="fc" id="L100">                throw new ConflictException(&quot;ID-2002&quot;, &quot;该昵称已被使用&quot;);</span>
+            }
+<span class="fc bfc" id="L102" title="All 2 branches covered.">            if (chain.contains(&quot;uk_user_email_hash&quot;)) {</span>
+<span class="fc" id="L103">                throw new ConflictException(&quot;ID-2003&quot;, &quot;该邮箱已被使用&quot;);</span>
+            }
+            // 未知约束：保留原始异常，便于排查。
+<span class="fc" id="L106">            throw ex;</span>
+<span class="nc" id="L107">        }</span>
+<span class="nc bnc" id="L108" title="All 2 branches missed.">        if (user.id() == null) {</span>
+<span class="nc" id="L109">            user.assignId(saved.getId());</span>
+        }
+<span class="nc" id="L111">        return user;</span>
+    }
+
+    /** 收集异常链上所有 message，用约束名匹配（驱动与方言不同，message 是稳定交集）。 */
+    private static String exceptionChainMessages(Throwable ex) {
+<span class="fc" id="L116">        StringBuilder sb = new StringBuilder();</span>
+<span class="pc bpc" id="L117" title="1 of 4 branches missed.">        for (Throwable t = ex; t != null &amp;&amp; sb.length() &lt; 4096; t = t.getCause()) {</span>
+<span class="pc bpc" id="L118" title="1 of 2 branches missed.">            if (t.getMessage() != null) {</span>
+<span class="fc" id="L119">                sb.append(t.getMessage()).append('\n');</span>
+            }
+        }
+<span class="fc" id="L122">        return sb.toString();</span>
+    }
+
+    private User toDomain(UserJpaEntity e) {
+<span class="nc" id="L126">        return User.reconstitute(e.getId(), e.getUsername(), e.getDisplayName(), encryptor.decrypt(e.getEmailCipher()),</span>
+<span class="nc" id="L127">                e.getPasswordHash(), e.getRole(), UserStatus.valueOf(e.getStatus()), e.isVerified(), e.getCollege(),</span>
+<span class="nc" id="L128">                e.getClassName(), e.getCreatedAt(), e.getVersion());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

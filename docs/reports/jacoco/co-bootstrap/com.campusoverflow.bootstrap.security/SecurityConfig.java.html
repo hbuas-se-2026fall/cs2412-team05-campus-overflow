@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SecurityConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">CampusOverflow :: Bootstrap（启动装配）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.bootstrap.security</a> &gt; <span class="el_source">SecurityConfig.java</span></div><h1>SecurityConfig.java</h1><pre class="source lang-java linenums">package com.campusoverflow.bootstrap.security;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.context.DelegatingSecurityContextRepository;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfException;
+
+/**
+ * 安全过滤链（质量场景 QS-06/07/08）：
+ * &lt;ul&gt;
+ *   &lt;li&gt;服务端会话（Spring Session + Redis），会话 Cookie HttpOnly + SameSite=Lax（ADR-003）；&lt;/li&gt;
+ *   &lt;li&gt;CSRF：双提交 Cookie（XSRF-TOKEN → 请求头 X-XSRF-TOKEN），适配 SPA；&lt;/li&gt;
+ *   &lt;li&gt;URL 级粗粒度授权在此配置，资源级细粒度授权在领域层（聚合方法）完成——纵深防御。&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    private final ObjectMapper objectMapper;
+
+<span class="nc" id="L41">    public SecurityConfig(ObjectMapper objectMapper) {</span>
+<span class="nc" id="L42">        this.objectMapper = objectMapper;</span>
+<span class="nc" id="L43">    }</span>
+
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+<span class="nc" id="L47">        return new DelegatingSecurityContextRepository(new RequestAttributeSecurityContextRepository(),</span>
+                new HttpSessionSecurityContextRepository());
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+<span class="nc" id="L53">        return configuration.getAuthenticationManager();</span>
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contextRepository)
+            throws Exception {
+<span class="nc" id="L59">        http</span>
+<span class="nc" id="L60">                .csrf(csrf -&gt; csrf</span>
+<span class="nc" id="L61">                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())</span>
+<span class="nc" id="L62">                        .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler()))</span>
+<span class="nc" id="L63">                .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)</span>
+<span class="nc" id="L64">                .securityContext(sc -&gt; sc.securityContextRepository(contextRepository))</span>
+<span class="nc" id="L65">                .formLogin(AbstractHttpConfigurer::disable)</span>
+<span class="nc" id="L66">                .httpBasic(AbstractHttpConfigurer::disable)</span>
+<span class="nc" id="L67">                .authorizeHttpRequests(auth -&gt; auth</span>
+<span class="nc" id="L68">                        .requestMatchers(HttpMethod.POST, &quot;/api/v1/auth/register&quot;, &quot;/api/v1/auth/login&quot;).permitAll()</span>
+<span class="nc" id="L69">                        .requestMatchers(HttpMethod.GET, &quot;/api/v1/auth/csrf&quot;).permitAll()</span>
+<span class="nc" id="L70">                        .requestMatchers(HttpMethod.GET, &quot;/api/v1/questions/**&quot;, &quot;/api/v1/tags/**&quot;,</span>
+                                &quot;/api/v1/search/**&quot;, &quot;/api/v1/leaderboard&quot;, &quot;/api/v1/users/*/reputation&quot;,
+<span class="nc" id="L72">                                &quot;/api/v1/courses&quot;, &quot;/api/v1/courses/*/members&quot;).permitAll()</span>
+<span class="nc" id="L73">                        .requestMatchers(&quot;/api/v1/admin/**&quot;).hasRole(&quot;ADMIN&quot;)</span>
+<span class="nc" id="L74">                        .requestMatchers(&quot;/actuator/health/**&quot;, &quot;/actuator/info&quot;, &quot;/actuator/prometheus&quot;).permitAll()</span>
+<span class="nc" id="L75">                        .requestMatchers(&quot;/v3/api-docs/**&quot;, &quot;/swagger-ui/**&quot;, &quot;/swagger-ui.html&quot;).permitAll()</span>
+<span class="nc" id="L76">                        .requestMatchers(&quot;/error&quot;).permitAll()</span>
+<span class="nc" id="L77">                        .anyRequest().authenticated())</span>
+<span class="nc" id="L78">                .exceptionHandling(e -&gt; e</span>
+<span class="nc" id="L79">                        .authenticationEntryPoint((req, res, ex) -&gt;</span>
+<span class="nc" id="L80">                                writeProblem(res, HttpStatus.UNAUTHORIZED, &quot;AUTH-401&quot;, &quot;请先登录&quot;))</span>
+<span class="nc" id="L81">                        .accessDeniedHandler((req, res, ex) -&gt; {</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">                            if (ex instanceof CsrfException) {</span>
+<span class="nc" id="L83">                                writeProblem(res, HttpStatus.FORBIDDEN, &quot;AUTH-403-CSRF&quot;, &quot;CSRF 校验失败，请刷新页面后重试&quot;);</span>
+                            } else {
+<span class="nc" id="L85">                                writeProblem(res, HttpStatus.FORBIDDEN, &quot;AUTH-403&quot;, &quot;无权访问该资源&quot;);</span>
+                            }
+<span class="nc" id="L87">                        }))</span>
+<span class="nc" id="L88">                .logout(logout -&gt; logout</span>
+<span class="nc" id="L89">                        .logoutUrl(&quot;/api/v1/auth/logout&quot;)</span>
+<span class="nc" id="L90">                        .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT)))</span>
+<span class="nc" id="L91">                .headers(h -&gt; h</span>
+<span class="nc" id="L92">                        .contentSecurityPolicy(csp -&gt; csp.policyDirectives(</span>
+                                &quot;default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; &quot;
+                                        + &quot;script-src 'self'; frame-ancestors 'none'&quot;))
+<span class="nc" id="L95">                        .referrerPolicy(r -&gt; r.policy(</span>
+                                org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter
+                                        .ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN)));
+<span class="nc" id="L98">        return http.build();</span>
+    }
+
+    private void writeProblem(HttpServletResponse res, HttpStatus status, String code, String detail)
+            throws IOException {
+<span class="nc" id="L103">        Map&lt;String, Object&gt; body = new LinkedHashMap&lt;&gt;();</span>
+<span class="nc" id="L104">        body.put(&quot;type&quot;, &quot;about:blank&quot;);</span>
+<span class="nc" id="L105">        body.put(&quot;title&quot;, status.getReasonPhrase());</span>
+<span class="nc" id="L106">        body.put(&quot;status&quot;, status.value());</span>
+<span class="nc" id="L107">        body.put(&quot;detail&quot;, detail);</span>
+<span class="nc" id="L108">        body.put(&quot;code&quot;, code);</span>
+<span class="nc" id="L109">        res.setStatus(status.value());</span>
+<span class="nc" id="L110">        res.setContentType(&quot;application/problem+json;charset=UTF-8&quot;);</span>
+<span class="nc" id="L111">        objectMapper.writeValue(res.getOutputStream(), body);</span>
+<span class="nc" id="L112">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

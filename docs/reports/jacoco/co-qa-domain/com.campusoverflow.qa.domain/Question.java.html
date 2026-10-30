@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Question.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Q&amp;A 问答核心 :: domain（纯 Java）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.qa.domain</a> &gt; <span class="el_source">Question.java</span></div><h1>Question.java</h1><pre class="source lang-java linenums">package com.campusoverflow.qa.domain;
+
+import com.campusoverflow.shared.domain.BusinessRuleException;
+import com.campusoverflow.shared.domain.ConflictException;
+import com.campusoverflow.shared.domain.ForbiddenException;
+import com.campusoverflow.shared.security.Actor;
+import java.time.Instant;
+import java.util.Objects;
+
+/**
+ * 问题聚合根——问答核心不变量的守护者。
+ * &lt;ul&gt;
+ *   &lt;li&gt;最多只有一个被采纳的答案，且采纳后不可更改；&lt;/li&gt;
+ *   &lt;li&gt;只有提问者或课程管理者（教师/助教/管理员）可以采纳；&lt;/li&gt;
+ *   &lt;li&gt;已删除的问题不能再被回答、编辑或采纳；&lt;/li&gt;
+ *   &lt;li&gt;提问者只能删除尚无回答的问题，课程管理者可删除任意问题。&lt;/li&gt;
+ * &lt;/ul&gt;
+ * score / answerCount / viewCount 为反规范化计数器，由仓储以原子 SQL 维护，不在此处修改。
+ */
+public class Question {
+
+    private Long id;
+    private final long authorId;
+    private final Long courseId;
+    private Title title;
+    private MarkdownBody body;
+    private Tags tags;
+    private Long acceptedAnswerId;
+    private final int score;
+    private final int answerCount;
+    private final int viewCount;
+    private final Instant createdAt;
+    private Instant updatedAt;
+    private Instant deletedAt;
+    private final long version;
+
+    private Question(Long id, long authorId, Long courseId, Title title, MarkdownBody body, Tags tags,
+                     Long acceptedAnswerId, int score, int answerCount, int viewCount, Instant createdAt,
+<span class="fc" id="L39">                     Instant updatedAt, Instant deletedAt, long version) {</span>
+<span class="fc" id="L40">        this.id = id;</span>
+<span class="fc" id="L41">        this.authorId = authorId;</span>
+<span class="fc" id="L42">        this.courseId = courseId;</span>
+<span class="fc" id="L43">        this.title = Objects.requireNonNull(title);</span>
+<span class="fc" id="L44">        this.body = Objects.requireNonNull(body);</span>
+<span class="fc" id="L45">        this.tags = Objects.requireNonNull(tags);</span>
+<span class="fc" id="L46">        this.acceptedAnswerId = acceptedAnswerId;</span>
+<span class="fc" id="L47">        this.score = score;</span>
+<span class="fc" id="L48">        this.answerCount = answerCount;</span>
+<span class="fc" id="L49">        this.viewCount = viewCount;</span>
+<span class="fc" id="L50">        this.createdAt = createdAt;</span>
+<span class="fc" id="L51">        this.updatedAt = updatedAt;</span>
+<span class="fc" id="L52">        this.deletedAt = deletedAt;</span>
+<span class="fc" id="L53">        this.version = version;</span>
+<span class="fc" id="L54">    }</span>
+
+    public static Question post(long authorId, Long courseId, Title title, MarkdownBody body,
+                                Tags tags, Instant now) {
+<span class="fc" id="L58">        Objects.requireNonNull(now, &quot;发布时间不能为空&quot;);</span>
+
+<span class="fc" id="L60">        return new Question(</span>
+                null,
+                authorId,
+                courseId,
+                title,
+                body,
+                tags,
+                null,
+                0,
+                0,
+                0,
+                now,
+                now,
+                null,
+                0
+        );
+    }
+
+    public static Question reconstitute(Long id, long authorId, Long courseId, Title title,
+                                        MarkdownBody body, Tags tags, Long acceptedAnswerId,
+                                        int score, int answerCount, int viewCount, Instant createdAt,
+                                        Instant updatedAt, Instant deletedAt, long version) {
+<span class="fc" id="L82">        return new Question(id, authorId, courseId, title, body, tags, acceptedAnswerId,</span>
+                score, answerCount, viewCount, createdAt, updatedAt, deletedAt, version);
+    }
+
+    public void edit(Actor actor, boolean actorManagesCourse, Title newTitle,
+                     MarkdownBody newBody, Tags newTags, Instant now) {
+<span class="fc" id="L88">        Objects.requireNonNull(actor, &quot;操作者不能为空&quot;);</span>
+<span class="fc" id="L89">        Objects.requireNonNull(now, &quot;更新时间不能为空&quot;);</span>
+
+<span class="fc" id="L91">        ensureNotDeleted();</span>
+
+<span class="pc bpc" id="L93" title="1 of 4 branches missed.">        if (!actor.is(authorId) &amp;&amp; !actorManagesCourse) {</span>
+<span class="fc" id="L94">            throw new ForbiddenException(&quot;QA-1003&quot;, &quot;只有提问者或课程管理者可以编辑问题&quot;);</span>
+        }
+
+<span class="fc" id="L97">        this.title = Objects.requireNonNull(newTitle, &quot;标题不能为空&quot;);</span>
+<span class="fc" id="L98">        this.body = Objects.requireNonNull(newBody, &quot;正文不能为空&quot;);</span>
+<span class="fc" id="L99">        this.tags = Objects.requireNonNull(newTags, &quot;标签不能为空&quot;);</span>
+<span class="fc" id="L100">        this.updatedAt = now;</span>
+<span class="fc" id="L101">    }</span>
+
+    /** 采纳最佳答案。 */
+    public void accept(Answer answer, Actor actor, boolean actorManagesCourse) {
+<span class="fc" id="L105">        Objects.requireNonNull(actor, &quot;操作者不能为空&quot;);</span>
+
+<span class="fc" id="L107">        ensureNotDeleted();</span>
+
+<span class="fc bfc" id="L109" title="All 4 branches covered.">        if (!actor.is(authorId) &amp;&amp; !actorManagesCourse) {</span>
+<span class="fc" id="L110">            throw new ForbiddenException(&quot;QA-3001&quot;, &quot;只有提问者或课程管理者可以采纳答案&quot;);</span>
+        }
+
+<span class="fc" id="L113">        Objects.requireNonNull(answer, &quot;答案不能为空&quot;);</span>
+
+<span class="fc bfc" id="L115" title="All 2 branches covered.">        if (answer.isDeleted()) {</span>
+<span class="fc" id="L116">            throw new BusinessRuleException(&quot;QA-2002&quot;, &quot;已删除的回答不能被采纳&quot;);</span>
+        }
+
+<span class="fc bfc" id="L119" title="All 4 branches covered.">        if (id == null || answer.questionId() != id.longValue()) {</span>
+<span class="fc" id="L120">            throw new BusinessRuleException(&quot;QA-2002&quot;, &quot;只能采纳当前问题下的回答&quot;);</span>
+        }
+
+<span class="fc bfc" id="L123" title="All 2 branches covered.">        if (acceptedAnswerId != null) {</span>
+<span class="fc" id="L124">            throw new ConflictException(&quot;QA-2002&quot;, &quot;问题已经采纳了一个答案&quot;);</span>
+        }
+
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        if (answer.id() == null) {</span>
+<span class="fc" id="L128">            throw new BusinessRuleException(&quot;QA-2002&quot;, &quot;尚未分配 ID 的回答不能被采纳&quot;);</span>
+        }
+
+<span class="fc" id="L131">        acceptedAnswerId = answer.id();</span>
+<span class="fc" id="L132">    }</span>
+
+    public void softDelete(Actor actor, boolean actorManagesCourse, Instant now) {
+<span class="fc" id="L135">        Objects.requireNonNull(actor, &quot;操作者不能为空&quot;);</span>
+<span class="fc" id="L136">        Objects.requireNonNull(now, &quot;删除时间不能为空&quot;);</span>
+
+<span class="fc" id="L138">        ensureNotDeleted();</span>
+
+<span class="fc bfc" id="L140" title="All 4 branches covered.">        if (!actor.is(authorId) &amp;&amp; !actorManagesCourse) {</span>
+<span class="fc" id="L141">            throw new ForbiddenException(&quot;QA-1003&quot;, &quot;只有提问者或课程管理者可以删除问题&quot;);</span>
+        }
+
+<span class="fc bfc" id="L144" title="All 4 branches covered.">        if (!actorManagesCourse &amp;&amp; answerCount &gt; 0) {</span>
+<span class="fc" id="L145">            throw new BusinessRuleException(&quot;QA-1004&quot;, &quot;已有回答的问题不能由提问者删除&quot;);</span>
+        }
+
+<span class="fc" id="L148">        deletedAt = now;</span>
+<span class="fc" id="L149">    }</span>
+
+    public void ensureOpenForAnswers() {
+<span class="fc" id="L152">        ensureNotDeleted();</span>
+
+<span class="fc bfc" id="L154" title="All 2 branches covered.">        if (acceptedAnswerId != null) {</span>
+<span class="fc" id="L155">            throw new BusinessRuleException(&quot;QA-2002&quot;, &quot;问题已采纳答案，不能继续回答&quot;);</span>
+        }
+<span class="fc" id="L157">    }</span>
+
+    private void ensureNotDeleted() {
+<span class="fc bfc" id="L160" title="All 2 branches covered.">        if (isDeleted()) {</span>
+<span class="fc" id="L161">            throw new BusinessRuleException(&quot;QA-1004&quot;, &quot;问题已删除，不能继续操作&quot;);</span>
+        }
+<span class="fc" id="L163">    }</span>
+
+    public boolean isDeleted() {
+<span class="fc bfc" id="L166" title="All 2 branches covered.">        return deletedAt != null;</span>
+    }
+
+    public boolean isAccepted(long answerId) {
+<span class="pc bpc" id="L170" title="2 of 4 branches missed.">        return acceptedAnswerId != null &amp;&amp; acceptedAnswerId == answerId;</span>
+    }
+
+    public void assignId(long id) {
+<span class="fc bfc" id="L174" title="All 2 branches covered.">        if (this.id != null) {</span>
+<span class="fc" id="L175">            throw new IllegalStateException(&quot;ID 已分配&quot;);</span>
+        }
+<span class="fc" id="L177">        this.id = id;</span>
+<span class="fc" id="L178">    }</span>
+
+<span class="fc" id="L180">    public Long id() { return id; }</span>
+<span class="fc" id="L181">    public long authorId() { return authorId; }</span>
+<span class="fc" id="L182">    public Long courseId() { return courseId; }</span>
+<span class="fc" id="L183">    public Title title() { return title; }</span>
+<span class="fc" id="L184">    public MarkdownBody body() { return body; }</span>
+<span class="fc" id="L185">    public Tags tags() { return tags; }</span>
+<span class="fc" id="L186">    public Long acceptedAnswerId() { return acceptedAnswerId; }</span>
+<span class="fc" id="L187">    public int score() { return score; }</span>
+<span class="fc" id="L188">    public int answerCount() { return answerCount; }</span>
+<span class="fc" id="L189">    public int viewCount() { return viewCount; }</span>
+<span class="fc" id="L190">    public Instant createdAt() { return createdAt; }</span>
+<span class="fc" id="L191">    public Instant updatedAt() { return updatedAt; }</span>
+<span class="fc" id="L192">    public Instant deletedAt() { return deletedAt; }</span>
+<span class="fc" id="L193">    public long version() { return version; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

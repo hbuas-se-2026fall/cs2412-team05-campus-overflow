@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ReputationAccount.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Reputation 声誉与激励 :: domain（纯 Java）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.reputation.domain</a> &gt; <span class="el_source">ReputationAccount.java</span></div><h1>ReputationAccount.java</h1><pre class="source lang-java linenums">package com.campusoverflow.reputation.domain;
+
+import com.campusoverflow.shared.domain.BusinessRuleException;
+
+public class ReputationAccount {
+
+    private final long userId;
+    private int reputation;
+    private int availablePoints;
+    private int frozenPoints;
+    private final long version;
+
+    private ReputationAccount(long userId, int reputation, int availablePoints,
+<span class="fc" id="L14">                              int frozenPoints, long version) {</span>
+<span class="fc" id="L15">        this.userId = userId;</span>
+<span class="fc" id="L16">        this.reputation = reputation;</span>
+<span class="fc" id="L17">        this.availablePoints = availablePoints;</span>
+<span class="fc" id="L18">        this.frozenPoints = frozenPoints;</span>
+<span class="fc" id="L19">        this.version = version;</span>
+<span class="fc" id="L20">    }</span>
+
+    public static ReputationAccount open(long userId, int initialPoints) {
+<span class="pc bpc" id="L23" title="2 of 4 branches missed.">        if (userId &lt;= 0 || initialPoints &lt; 0) {</span>
+<span class="nc" id="L24">            throw new BusinessRuleException(&quot;REP-1001&quot;, &quot;账户参数不合法&quot;);</span>
+        }
+<span class="fc" id="L26">        return new ReputationAccount(userId, 0, initialPoints, 0, 0);</span>
+    }
+
+    public static ReputationAccount reconstitute(long userId, int reputation,
+                                                 int availablePoints, int frozenPoints,
+                                                 long version) {
+<span class="nc" id="L32">        return new ReputationAccount(userId, reputation, availablePoints,</span>
+                frozenPoints, version);
+    }
+
+    public void applyReputation(int delta) {
+<span class="nc" id="L37">        long result = (long) reputation + delta;</span>
+<span class="nc bnc" id="L38" title="All 4 branches missed.">        if (result &lt; 0 || result &gt; Integer.MAX_VALUE) {</span>
+<span class="nc" id="L39">            throw new BusinessRuleException(&quot;REP-1008&quot;, &quot;声誉值超出允许范围&quot;);</span>
+        }
+<span class="nc" id="L41">        reputation = (int) result;</span>
+<span class="nc" id="L42">    }</span>
+
+    public void freezePoints(int points) {
+<span class="fc" id="L45">        requirePositive(points);</span>
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        if (availablePoints &lt; points) {</span>
+<span class="fc" id="L47">            throw new BusinessRuleException(&quot;REP-1002&quot;, &quot;可用悬赏积分不足&quot;);</span>
+        }
+<span class="fc" id="L49">        availablePoints -= points;</span>
+<span class="fc" id="L50">        frozenPoints = Math.addExact(frozenPoints, points);</span>
+<span class="fc" id="L51">    }</span>
+
+    public void spendFrozen(int points) {
+<span class="fc" id="L54">        requirePositive(points);</span>
+<span class="fc" id="L55">        ensureFrozen(points);</span>
+<span class="fc" id="L56">        frozenPoints -= points;</span>
+<span class="fc" id="L57">    }</span>
+
+    public void refundFrozen(int points) {
+<span class="fc" id="L60">        requirePositive(points);</span>
+<span class="fc" id="L61">        ensureFrozen(points);</span>
+<span class="fc" id="L62">        frozenPoints -= points;</span>
+<span class="fc" id="L63">        availablePoints = Math.addExact(availablePoints, points);</span>
+<span class="fc" id="L64">    }</span>
+
+    private void ensureFrozen(int points) {
+<span class="pc bpc" id="L67" title="1 of 2 branches missed.">        if (frozenPoints &lt; points) {</span>
+<span class="nc" id="L68">            throw new BusinessRuleException(&quot;REP-1009&quot;, &quot;冻结积分不足&quot;);</span>
+        }
+<span class="fc" id="L70">    }</span>
+
+    private static void requirePositive(int points) {
+<span class="pc bpc" id="L73" title="1 of 2 branches missed.">        if (points &lt;= 0) {</span>
+<span class="nc" id="L74">            throw new BusinessRuleException(&quot;REP-1010&quot;, &quot;积分必须大于零&quot;);</span>
+        }
+<span class="fc" id="L76">    }</span>
+
+    public long userId() {
+<span class="nc" id="L79">        return userId;</span>
+    }
+
+    public int reputation() {
+<span class="nc" id="L83">        return reputation;</span>
+    }
+
+    public int availablePoints() {
+<span class="fc" id="L87">        return availablePoints;</span>
+    }
+
+    public int frozenPoints() {
+<span class="fc" id="L91">        return frozenPoints;</span>
+    }
+
+    public long version() {
+<span class="nc" id="L95">        return version;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DomainException.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">CampusOverflow :: Shared Kernel</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.shared.domain</a> &gt; <span class="el_source">DomainException.java</span></div><h1>DomainException.java</h1><pre class="source lang-java linenums">package com.campusoverflow.shared.domain;
+
+/**
+ * 所有业务异常的基类。每个异常携带一个按上下文分段的错误码（ID-xxxx / QA-xxxx / REP-xxxx / DIS-xxxx），
+ * 由 co-bootstrap 中的全局异常处理器统一映射为 RFC 9457 Problem Details。
+ * &lt;p&gt;领域层只依赖本类，不依赖任何 HTTP 概念，从而保持与框架解耦。&lt;/p&gt;
+ */
+public abstract class DomainException extends RuntimeException {
+
+    private final String code;
+
+    protected DomainException(String code, String message) {
+<span class="nc" id="L13">        super(message);</span>
+<span class="nc" id="L14">        this.code = code;</span>
+<span class="nc" id="L15">    }</span>
+
+    public String code() {
+<span class="nc" id="L18">        return code;</span>
+    }
+
+    /** 建议映射的 HTTP 状态码（由接口层解释，领域层不关心其含义）。 */
+    public abstract int suggestedStatus();
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

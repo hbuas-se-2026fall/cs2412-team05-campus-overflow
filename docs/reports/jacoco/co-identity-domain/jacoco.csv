@@ -1,0 +1,8 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+Identity 身份与认证 :: domain（纯 Java）,com.campusoverflow.identity.domain,Course,41,71,5,5,10,16,10,6,6,5
+Identity 身份与认证 :: domain（纯 Java）,com.campusoverflow.identity.domain,User,54,297,13,25,14,69,18,30,6,23
+Identity 身份与认证 :: domain（纯 Java）,com.campusoverflow.identity.domain,CourseRole,4,27,3,1,0,5,2,2,0,2
+Identity 身份与认证 :: domain（纯 Java）,com.campusoverflow.identity.domain,PasswordPolicy,0,37,3,7,0,7,3,3,0,1
+Identity 身份与认证 :: domain（纯 Java）,com.campusoverflow.identity.domain,UserStatus,0,15,0,0,0,3,0,1,0,1
+Identity 身份与认证 :: domain（纯 Java）,com.campusoverflow.identity.domain,CourseMember,24,119,2,10,5,31,6,16,4,12
+Identity 身份与认证 :: domain（纯 Java）,com.campusoverflow.identity.domain,CourseMemberStatus,0,21,0,0,0,4,0,1,0,1

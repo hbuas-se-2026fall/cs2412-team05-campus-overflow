@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Course.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Identity 身份与认证 :: domain（纯 Java）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.identity.domain</a> &gt; <span class="el_source">Course.java</span></div><h1>Course.java</h1><pre class="source lang-java linenums">package com.campusoverflow.identity.domain;
+
+import com.campusoverflow.shared.domain.BusinessRuleException;
+import com.campusoverflow.shared.domain.ForbiddenException;
+import com.campusoverflow.shared.domain.Guard;
+import com.campusoverflow.shared.security.Actor;
+import java.time.Instant;
+import java.util.regex.Pattern;
+
+/** 课程：课程专属问答区的载体。同一课程代码在同一学期唯一。 */
+public class Course {
+
+<span class="fc" id="L13">    private static final Pattern CODE = Pattern.compile(&quot;^[A-Za-z0-9-]{2,20}$&quot;);</span>
+
+    private Long id;
+    private final String code;
+    private final String name;
+    private final String term;
+    private final long teacherId;
+    private final Instant createdAt;
+
+<span class="fc" id="L22">    private Course(Long id, String code, String name, String term, long teacherId, Instant createdAt) {</span>
+<span class="fc" id="L23">        this.id = id;</span>
+<span class="fc" id="L24">        this.code = code;</span>
+<span class="fc" id="L25">        this.name = name;</span>
+<span class="fc" id="L26">        this.term = term;</span>
+<span class="fc" id="L27">        this.teacherId = teacherId;</span>
+<span class="fc" id="L28">        this.createdAt = createdAt;</span>
+<span class="fc" id="L29">    }</span>
+
+    public static Course create(Actor actor, String code, String name, String term, Instant now) {
+<span class="pc bpc" id="L32" title="1 of 4 branches missed.">        if (actor == null || !actor.isTeacherOrAdmin()) {</span>
+<span class="fc" id="L33">            throw new ForbiddenException(&quot;ID-3002&quot;, &quot;仅教师或管理员可以创建课程&quot;);</span>
+        }
+<span class="pc bpc" id="L35" title="2 of 4 branches missed.">        if (code == null || !CODE.matcher(code).matches()) {</span>
+<span class="nc" id="L36">            throw new BusinessRuleException(&quot;ID-1010&quot;, &quot;课程代码应为 2–20 位字母、数字或连字符&quot;);</span>
+        }
+<span class="fc" id="L38">        return new Course(null, code.toUpperCase(), Guard.requireText(name, 2, 50, &quot;ID-1011&quot;, &quot;课程名称&quot;),</span>
+<span class="fc" id="L39">                Guard.requireText(term, 2, 20, &quot;ID-1012&quot;, &quot;学期&quot;), actor.userId(), now);</span>
+    }
+
+    public static Course reconstitute(Long id, String code, String name, String term, long teacherId, Instant createdAt) {
+<span class="nc" id="L43">        return new Course(id, code, name, term, teacherId, createdAt);</span>
+    }
+
+    public void assignId(long id) {
+<span class="nc bnc" id="L47" title="All 2 branches missed.">        if (this.id != null) {</span>
+<span class="nc" id="L48">            throw new IllegalStateException(&quot;ID 已分配&quot;);</span>
+        }
+<span class="nc" id="L50">        this.id = id;</span>
+<span class="nc" id="L51">    }</span>
+
+<span class="nc" id="L53">    public Long id() { return id; }</span>
+<span class="fc" id="L54">    public String code() { return code; }</span>
+<span class="nc" id="L55">    public String name() { return name; }</span>
+<span class="nc" id="L56">    public String term() { return term; }</span>
+<span class="fc" id="L57">    public long teacherId() { return teacherId; }</span>
+<span class="nc" id="L58">    public Instant createdAt() { return createdAt; }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

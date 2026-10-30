@@ -1,0 +1,12 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+Identity 身份与认证 :: infrastructure（持久化与适配器）,com.campusoverflow.identity.infrastructure.security,IdentitySecurityBeans,8,0,0,0,2,0,2,0,2,0
+Identity 身份与认证 :: infrastructure（持久化与适配器）,com.campusoverflow.identity.infrastructure.security,BCryptPasswordHasher,17,0,0,0,5,0,3,0,3,0
+Identity 身份与认证 :: infrastructure（持久化与适配器）,com.campusoverflow.identity.infrastructure.security,DbUserDetailsService,36,0,0,0,5,0,3,0,3,0
+Identity 身份与认证 :: infrastructure（持久化与适配器）,com.campusoverflow.identity.infrastructure.security,RedisLoginThrottle,64,0,8,0,14,0,10,0,6,0
+Identity 身份与认证 :: infrastructure（持久化与适配器）,com.campusoverflow.identity.infrastructure.security,SecurityUser,56,0,0,0,16,0,8,0,8,0
+Identity 身份与认证 :: infrastructure（持久化与适配器）,com.campusoverflow.identity.infrastructure.crypto,FieldEncryptor,144,0,2,0,27,0,5,0,4,0
+Identity 身份与认证 :: infrastructure（持久化与适配器）,com.campusoverflow.identity.infrastructure.persistence,CourseJpaEntity,39,0,0,0,15,0,8,0,8,0
+Identity 身份与认证 :: infrastructure（持久化与适配器）,com.campusoverflow.identity.infrastructure.persistence,UserRepositoryAdapter,156,118,5,9,22,27,14,6,10,3
+Identity 身份与认证 :: infrastructure（持久化与适配器）,com.campusoverflow.identity.infrastructure.persistence,UserJpaEntity,42,45,0,0,15,13,14,10,14,10
+Identity 身份与认证 :: infrastructure（持久化与适配器）,com.campusoverflow.identity.infrastructure.persistence,CourseRepositoryAdapter,183,0,2,0,31,0,14,0,13,0
+Identity 身份与认证 :: infrastructure（持久化与适配器）,com.campusoverflow.identity.infrastructure.persistence,CourseMemberJpaEntity,47,0,0,0,17,0,10,0,10,0

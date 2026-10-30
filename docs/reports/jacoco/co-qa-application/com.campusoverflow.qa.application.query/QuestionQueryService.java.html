@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>QuestionQueryService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Q&amp;A 问答核心 :: application（用例编排）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.qa.application.query</a> &gt; <span class="el_source">QuestionQueryService.java</span></div><h1>QuestionQueryService.java</h1><pre class="source lang-java linenums">package com.campusoverflow.qa.application.query;
+
+import com.campusoverflow.identity.api.IdentityApi;
+import com.campusoverflow.identity.api.UserSummary;
+import com.campusoverflow.qa.application.port.ContentRenderer;
+import com.campusoverflow.qa.application.port.QaReadModel;
+import com.campusoverflow.qa.application.port.QuestionListCache;
+import com.campusoverflow.qa.application.port.ViewCounter;
+import com.campusoverflow.shared.domain.NotFoundException;
+import com.campusoverflow.shared.page.PageRequest;
+import com.campusoverflow.shared.page.PageResult;
+import com.campusoverflow.shared.security.Actor;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** 问答查询用例（读路径）。 */
+@Service
+@Transactional(readOnly = true)
+public class QuestionQueryService {
+
+    private static final int EXCERPT_LENGTH = 160;
+
+    private final QaReadModel readModel;
+    private final IdentityApi identity;
+    private final ContentRenderer renderer;
+    private final ViewCounter viewCounter;
+    private final QuestionListCache cache;
+
+    public QuestionQueryService(QaReadModel readModel, IdentityApi identity, ContentRenderer renderer,
+<span class="nc" id="L37">                                ViewCounter viewCounter, QuestionListCache cache) {</span>
+<span class="nc" id="L38">        this.readModel = readModel;</span>
+<span class="nc" id="L39">        this.identity = identity;</span>
+<span class="nc" id="L40">        this.renderer = renderer;</span>
+<span class="nc" id="L41">        this.viewCounter = viewCounter;</span>
+<span class="nc" id="L42">        this.cache = cache;</span>
+<span class="nc" id="L43">    }</span>
+
+    public PageResult&lt;QuestionSummaryView&gt; list(Long courseId, PageRequest page) {
+<span class="nc" id="L46">        var cached = cache.get(courseId, page);</span>
+<span class="nc bnc" id="L47" title="All 2 branches missed.">        if (cached.isPresent()) {</span>
+<span class="nc" id="L48">            return cached.get();</span>
+        }
+
+<span class="nc" id="L51">        PageResult&lt;QuestionRow&gt; rows = readModel.listQuestions(courseId, page);</span>
+<span class="nc" id="L52">        Map&lt;Long, UserSummary&gt; users = identity.findUsers(rows.items().stream().map(QuestionRow::authorId).toList());</span>
+<span class="nc" id="L53">        PageResult&lt;QuestionSummaryView&gt; result = rows.map(row -&gt; new QuestionSummaryView(row.id(), row.title(),</span>
+<span class="nc" id="L54">                renderer.toPlainText(row.body(), EXCERPT_LENGTH), row.tags(), row.courseId(),</span>
+<span class="nc" id="L55">                AuthorView.of(row.authorId(), users.get(row.authorId())), row.score(), row.answerCount(),</span>
+<span class="nc bnc" id="L56" title="All 2 branches missed.">                row.viewCount(), row.acceptedAnswerId() != null, row.createdAt()));</span>
+<span class="nc" id="L57">        cache.put(courseId, page, result);</span>
+<span class="nc" id="L58">        return result;</span>
+    }
+
+    public QuestionDetailView detail(long questionId, Actor actorOrNull) {
+<span class="nc" id="L62">        QuestionRow question = readModel.findQuestion(questionId)</span>
+<span class="nc" id="L63">                .orElseThrow(() -&gt; new NotFoundException(&quot;QA-4001&quot;, &quot;问题不存在，id=&quot; + questionId));</span>
+<span class="nc" id="L64">        List&lt;AnswerRow&gt; answerRows = readModel.findAnswers(questionId);</span>
+<span class="nc" id="L65">        List&lt;CommentRow&gt; commentRows = readModel.findComments(questionId);</span>
+
+<span class="nc" id="L67">        Set&lt;Long&gt; userIds = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L68">        userIds.add(question.authorId());</span>
+<span class="nc" id="L69">        answerRows.forEach(answer -&gt; {</span>
+<span class="nc" id="L70">            userIds.add(answer.authorId());</span>
+<span class="nc bnc" id="L71" title="All 2 branches missed.">            if (answer.endorsedBy() != null) {</span>
+<span class="nc" id="L72">                userIds.add(answer.endorsedBy());</span>
+            }
+<span class="nc" id="L74">        });</span>
+<span class="nc" id="L75">        commentRows.forEach(comment -&gt; userIds.add(comment.authorId()));</span>
+<span class="nc" id="L76">        Map&lt;Long, UserSummary&gt; users = identity.findUsers(userIds);</span>
+
+<span class="nc bnc" id="L78" title="All 2 branches missed.">        Map&lt;String, Integer&gt; myVotes = actorOrNull == null ? Map.of() : readModel.findMyVotes(actorOrNull.userId(),</span>
+<span class="nc" id="L79">                questionId, answerRows.stream().map(AnswerRow::id).toList());</span>
+<span class="nc bnc" id="L80" title="All 4 branches missed.">        boolean canManage = actorOrNull != null &amp;&amp; identity.canManageCourse(actorOrNull.userId(), question.courseId());</span>
+<span class="nc bnc" id="L81" title="All 4 branches missed.">        boolean ownsQuestion = actorOrNull != null &amp;&amp; actorOrNull.is(question.authorId());</span>
+<span class="nc bnc" id="L82" title="All 2 branches missed.">        PermissionsView permissions = actorOrNull == null ? PermissionsView.NONE</span>
+<span class="nc bnc" id="L83" title="All 14 branches missed.">                : new PermissionsView(ownsQuestion || canManage, canManage || (ownsQuestion &amp;&amp; question.answerCount() == 0),</span>
+<span class="nc bnc" id="L84" title="All 2 branches missed.">                (ownsQuestion || canManage) &amp;&amp; question.acceptedAnswerId() == null, canManage);</span>
+
+<span class="nc" id="L86">        Map&lt;String, List&lt;CommentView&gt;&gt; commentsByTarget = commentRows.stream()</span>
+<span class="nc" id="L87">                .collect(Collectors.groupingBy(row -&gt; row.targetType() + &quot;:&quot; + row.targetId(),</span>
+<span class="nc" id="L88">                        Collectors.mapping(row -&gt; toCommentView(row, users), Collectors.toList())));</span>
+<span class="nc" id="L89">        List&lt;AnswerView&gt; answers = answerRows.stream()</span>
+<span class="nc bnc" id="L90" title="All 2 branches missed.">                .sorted(Comparator.comparing((AnswerRow row) -&gt; !Objects.equals(row.id(), question.acceptedAnswerId()))</span>
+<span class="nc" id="L91">                        .thenComparing(AnswerRow::score, Comparator.reverseOrder())</span>
+<span class="nc" id="L92">                        .thenComparing(AnswerRow::createdAt))</span>
+<span class="nc" id="L93">                .map(row -&gt; {</span>
+<span class="nc bnc" id="L94" title="All 6 branches missed.">                    boolean canEdit = actorOrNull != null &amp;&amp; (canManage || actorOrNull.is(row.authorId()));</span>
+<span class="nc" id="L95">                    return new AnswerView(row.id(), row.body(), renderer.toSafeHtml(row.body()),</span>
+<span class="nc" id="L96">                            AuthorView.of(row.authorId(), users.get(row.authorId())), row.score(),</span>
+<span class="nc" id="L97">                            Objects.equals(row.id(), question.acceptedAnswerId()),</span>
+<span class="nc bnc" id="L98" title="All 2 branches missed.">                            row.endorsedBy() == null ? null : AuthorView.of(row.endorsedBy(), users.get(row.endorsedBy())),</span>
+<span class="nc" id="L99">                            myVotes.getOrDefault(&quot;ANSWER:&quot; + row.id(), 0), canEdit, row.createdAt(), row.updatedAt(),</span>
+<span class="nc" id="L100">                            commentsByTarget.getOrDefault(&quot;ANSWER:&quot; + row.id(), List.of()));</span>
+                })
+<span class="nc" id="L102">                .toList();</span>
+
+<span class="nc bnc" id="L104" title="All 2 branches missed.">        CourseRefView course = question.courseId() == null ? null : identity.findCourse(question.courseId())</span>
+<span class="nc" id="L105">                .map(value -&gt; new CourseRefView(value.id(), value.code(), value.name())).orElse(null);</span>
+<span class="nc" id="L106">        viewCounter.increment(questionId);</span>
+<span class="nc" id="L107">        return new QuestionDetailView(question.id(), question.title(), question.body(),</span>
+<span class="nc" id="L108">                renderer.toSafeHtml(question.body()), question.tags(), course,</span>
+<span class="nc" id="L109">                AuthorView.of(question.authorId(), users.get(question.authorId())), question.score(),</span>
+<span class="nc" id="L110">                question.answerCount(), question.viewCount(), question.acceptedAnswerId(),</span>
+<span class="nc" id="L111">                myVotes.getOrDefault(&quot;QUESTION:&quot; + question.id(), 0), question.createdAt(), question.updatedAt(),</span>
+<span class="nc" id="L112">                permissions, commentsByTarget.getOrDefault(&quot;QUESTION:&quot; + question.id(), List.of()), answers);</span>
+    }
+
+    public List&lt;TagView&gt; popularTags(int limit) {
+<span class="nc" id="L116">        return readModel.popularTags(Math.max(0, limit));</span>
+    }
+
+    private CommentView toCommentView(CommentRow row, Map&lt;Long, UserSummary&gt; users) {
+<span class="nc" id="L120">        return new CommentView(row.id(), AuthorView.of(row.authorId(), users.get(row.authorId())), row.parentId(),</span>
+<span class="nc" id="L121">                row.body(), row.createdAt());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

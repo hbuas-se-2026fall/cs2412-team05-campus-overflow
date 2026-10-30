@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OutboxIntegrationEventPublisher.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">CampusOverflow :: Bootstrap（启动装配）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.bootstrap.outbox</a> &gt; <span class="el_source">OutboxIntegrationEventPublisher.java</span></div><h1>OutboxIntegrationEventPublisher.java</h1><pre class="source lang-java linenums">package com.campusoverflow.bootstrap.outbox;
+
+import com.campusoverflow.shared.event.IntegrationEvent;
+import com.campusoverflow.shared.event.IntegrationEventPublisher;
+import com.campusoverflow.shared.util.UtcTime;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Clock;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 事务性发件箱（ADR-002）的写端：事件与业务数据在同一个本地事务中落库。
+ * Propagation.MANDATORY 把“必须在事务中发布”变成运行期强约束。
+ */
+@Component
+public class OutboxIntegrationEventPublisher implements IntegrationEventPublisher {
+
+    private final JdbcTemplate jdbc;
+    private final ObjectMapper mapper;
+    private final Clock clock;
+
+<span class="nc" id="L25">    public OutboxIntegrationEventPublisher(JdbcTemplate jdbc, ObjectMapper mapper, Clock clock) {</span>
+<span class="nc" id="L26">        this.jdbc = jdbc;</span>
+<span class="nc" id="L27">        this.mapper = mapper;</span>
+<span class="nc" id="L28">        this.clock = clock;</span>
+<span class="nc" id="L29">    }</span>
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void publish(IntegrationEvent event) {
+        try {
+<span class="nc" id="L35">            jdbc.update(&quot;&quot;&quot;</span>
+                    INSERT INTO outbox_event (event_id, event_type, payload, occurred_at, created_at, attempts)
+                    VALUES (?, ?, ?, ?, ?, 0)
+<span class="nc" id="L38">                    &quot;&quot;&quot;, event.eventId(), event.getClass().getName(), mapper.writeValueAsString(event),</span>
+<span class="nc" id="L39">                    UtcTime.toDb(event.occurredAt()), UtcTime.toDb(clock.instant()));</span>
+<span class="nc" id="L40">        } catch (JsonProcessingException e) {</span>
+<span class="nc" id="L41">            throw new IllegalStateException(&quot;事件序列化失败: &quot; + event.getClass().getSimpleName(), e);</span>
+<span class="nc" id="L42">        }</span>
+<span class="nc" id="L43">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
