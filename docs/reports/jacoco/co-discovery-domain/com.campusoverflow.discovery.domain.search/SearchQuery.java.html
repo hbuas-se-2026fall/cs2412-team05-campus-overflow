@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SearchQuery.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Discovery 内容发现 :: domain（纯 Java）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.discovery.domain.search</a> &gt; <span class="el_source">SearchQuery.java</span></div><h1>SearchQuery.java</h1><pre class="source lang-java linenums">package com.campusoverflow.discovery.domain.search;
+
+import com.campusoverflow.shared.domain.BusinessRuleException;
+import com.campusoverflow.shared.page.PageRequest;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+
+public record SearchQuery(String keyword, Long courseId, String tag, SearchSort sort, boolean unansweredOnly,
+                          boolean bountyOnly, PageRequest page) {
+
+    private static final int MAX_TERMS = 5;
+
+<span class="fc" id="L14">    public SearchQuery {</span>
+<span class="pc bpc" id="L15" title="1 of 2 branches missed.">        keyword = keyword == null ? null : keyword.replaceAll(&quot;[\&quot;+\\-&lt;&gt;()~*@]&quot;, &quot; &quot;).strip();</span>
+<span class="pc bpc" id="L16" title="1 of 4 branches missed.">        if (keyword != null &amp;&amp; keyword.isEmpty()) {</span>
+<span class="fc" id="L17">            keyword = null;</span>
+        }
+<span class="pc bpc" id="L19" title="1 of 4 branches missed.">        if (keyword != null &amp;&amp; keyword.codePointCount(0, keyword.length()) &gt; 50) {</span>
+<span class="nc" id="L20">            throw new BusinessRuleException(&quot;DIS-1002&quot;, &quot;关键词不能超过50个字符&quot;);</span>
+        }
+<span class="fc bfc" id="L22" title="All 6 branches covered.">        if (keyword != null &amp;&amp; terms(keyword).stream().anyMatch(t -&gt; t.codePointCount(0, t.length()) &lt; 2)) {</span>
+<span class="fc" id="L23">            throw new BusinessRuleException(&quot;DIS-1001&quot;, &quot;每个关键词至少2个字符&quot;);</span>
+        }
+<span class="pc bpc" id="L25" title="1 of 4 branches missed.">        tag = tag == null || tag.isBlank() ? null : tag.strip().toLowerCase(Locale.ROOT);</span>
+<span class="fc bfc" id="L26" title="All 2 branches covered.">        if (sort == null) {</span>
+<span class="pc bpc" id="L27" title="1 of 2 branches missed.">            sort = keyword != null ? SearchSort.RELEVANCE : SearchSort.NEWEST;</span>
+        }
+<span class="pc bpc" id="L29" title="1 of 4 branches missed.">        if (sort == SearchSort.RELEVANCE &amp;&amp; keyword == null) {</span>
+<span class="fc" id="L30">            sort = SearchSort.NEWEST;</span>
+        }
+<span class="pc bpc" id="L32" title="1 of 2 branches missed.">        page = page == null ? new PageRequest(1, 20) : page;</span>
+<span class="fc" id="L33">    }</span>
+
+    public List&lt;String&gt; terms() {
+<span class="fc" id="L36">        return terms(keyword);</span>
+    }
+
+    private static List&lt;String&gt; terms(String keyword) {
+<span class="pc bpc" id="L40" title="2 of 4 branches missed.">        if (keyword == null || keyword.isBlank()) {</span>
+<span class="nc" id="L41">            return List.of();</span>
+        }
+<span class="fc" id="L43">        return Arrays.stream(keyword.strip().split(&quot;\\s+&quot;))</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">                .filter(term -&gt; !term.isBlank())</span>
+<span class="fc" id="L45">                .limit(MAX_TERMS)</span>
+<span class="fc" id="L46">                .toList();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

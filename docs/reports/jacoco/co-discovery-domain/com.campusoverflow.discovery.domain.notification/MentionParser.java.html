@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MentionParser.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Discovery 内容发现 :: domain（纯 Java）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.discovery.domain.notification</a> &gt; <span class="el_source">MentionParser.java</span></div><h1>MentionParser.java</h1><pre class="source lang-java linenums">package com.campusoverflow.discovery.domain.notification;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public final class MentionParser {
+
+<span class="fc" id="L10">    private static final Pattern MENTION =</span>
+<span class="fc" id="L11">            Pattern.compile(&quot;(?&lt;![\\p{L}\\p{N}_])@([^\\s@，。！？：；,.!?;:]{2,20})&quot;);</span>
+    public static final int MAX_MENTIONS = 5;
+
+    private MentionParser() {
+    }
+
+    public static Set&lt;String&gt; extract(String text) {
+<span class="pc bpc" id="L18" title="2 of 4 branches missed.">        if (text == null || text.isBlank()) {</span>
+<span class="nc" id="L19">            return Set.of();</span>
+        }
+<span class="fc" id="L21">        Set&lt;String&gt; mentions = new LinkedHashSet&lt;&gt;();</span>
+<span class="fc" id="L22">        Matcher matcher = MENTION.matcher(text);</span>
+<span class="fc bfc" id="L23" title="All 4 branches covered.">        while (matcher.find() &amp;&amp; mentions.size() &lt; MAX_MENTIONS) {</span>
+<span class="fc" id="L24">            mentions.add(matcher.group(1));</span>
+        }
+<span class="fc" id="L26">        return mentions;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

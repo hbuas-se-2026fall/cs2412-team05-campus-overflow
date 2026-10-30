@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BadgeType.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Reputation 声誉与激励 :: domain（纯 Java）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.reputation.domain</a> &gt; <span class="el_source">BadgeType.java</span></div><h1>BadgeType.java</h1><pre class="source lang-java linenums">package com.campusoverflow.reputation.domain;
+
+<span class="fc" id="L3">public enum BadgeType {</span>
+<span class="fc" id="L4">    FIRST_ANSWER(&quot;初来乍到&quot;, &quot;提交第一个回答&quot;),</span>
+<span class="fc" id="L5">    FIRST_ACCEPTED(&quot;初露锋芒&quot;, &quot;第一个回答被采纳&quot;),</span>
+<span class="fc" id="L6">    HELPER_10(&quot;解惑达人&quot;, &quot;累计 10 个回答被采纳&quot;),</span>
+<span class="fc" id="L7">    TEACHER_ENDORSED(&quot;名师认可&quot;, &quot;回答获得教师认证&quot;),</span>
+<span class="fc" id="L8">    REPUTATION_100(&quot;小有名气&quot;, &quot;声誉达到 100&quot;),</span>
+<span class="fc" id="L9">    REPUTATION_1000(&quot;德高望重&quot;, &quot;声誉达到 1000&quot;);</span>
+
+    private final String displayName;
+    private final String description;
+
+<span class="fc" id="L14">    BadgeType(String displayName, String description) {</span>
+<span class="fc" id="L15">        this.displayName = displayName;</span>
+<span class="fc" id="L16">        this.description = description;</span>
+<span class="fc" id="L17">    }</span>
+
+    public String displayName() {
+<span class="nc" id="L20">        return displayName;</span>
+    }
+
+    public String description() {
+<span class="nc" id="L24">        return description;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Role.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">CampusOverflow :: Shared Kernel</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.shared.security</a> &gt; <span class="el_source">Role.java</span></div><h1>Role.java</h1><pre class="source lang-java linenums">package com.campusoverflow.shared.security;
+
+/**
+ * 全局角色（RBAC）。课程内的细粒度角色（某门课的助教/教师）由 Identity 上下文的课程成员关系表达。
+ */
+<span class="nc" id="L6">public enum Role {</span>
+<span class="nc" id="L7">    STUDENT(&quot;学生&quot;),</span>
+<span class="nc" id="L8">    TA(&quot;助教&quot;),</span>
+<span class="nc" id="L9">    TEACHER(&quot;教师&quot;),</span>
+<span class="nc" id="L10">    ADMIN(&quot;管理员&quot;);</span>
+
+    private final String label;
+
+<span class="nc" id="L14">    Role(String label) {</span>
+<span class="nc" id="L15">        this.label = label;</span>
+<span class="nc" id="L16">    }</span>
+
+    public String label() {
+<span class="nc" id="L19">        return label;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DemoDataSeeder.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">CampusOverflow :: Bootstrap（启动装配）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.bootstrap.demo</a> &gt; <span class="el_source">DemoDataSeeder.java</span></div><h1>DemoDataSeeder.java</h1><pre class="source lang-java linenums">package com.campusoverflow.bootstrap.demo;
+
+import com.campusoverflow.identity.api.IdentityApi;
+import com.campusoverflow.identity.application.AdminUserService;
+import com.campusoverflow.identity.application.CourseService;
+import com.campusoverflow.identity.application.CreateCourseCommand;
+import com.campusoverflow.identity.application.CreateStaffCommand;
+import com.campusoverflow.identity.application.RegisterUserCommand;
+import com.campusoverflow.identity.application.UserRegistrationService;
+import com.campusoverflow.identity.domain.CourseRole;
+import com.campusoverflow.qa.application.command.AnswerCommandService;
+import com.campusoverflow.qa.application.command.CommentService;
+import com.campusoverflow.qa.application.command.PostCommentCommand;
+import com.campusoverflow.qa.application.command.PostQuestionCommand;
+import com.campusoverflow.qa.application.command.QuestionCommandService;
+import com.campusoverflow.qa.application.command.VoteService;
+import com.campusoverflow.qa.domain.TargetType;
+import com.campusoverflow.reputation.application.BountyService;
+import com.campusoverflow.shared.security.Actor;
+import com.campusoverflow.shared.security.Role;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+
+/**
+ * 演示数据（仅 demo profile 生效）：一门课、6 个账号、3 个问题，覆盖提问→回答→投票→认证→采纳→评论→悬赏全链路。
+ * 课堂演示与验收时可直接登录查看效果；所有账号密码均为 {@value #PASSWORD}。
+ */
+@Component
+@Profile(&quot;demo&quot;)
+public class DemoDataSeeder implements ApplicationRunner {
+
+    public static final String PASSWORD = &quot;Campus2026&quot;;
+<span class="nc" id="L38">    private static final Logger log = LoggerFactory.getLogger(DemoDataSeeder.class);</span>
+
+    private final IdentityApi identity;
+    private final UserRegistrationService registration;
+    private final AdminUserService admins;
+    private final CourseService courses;
+    private final QuestionCommandService questions;
+    private final AnswerCommandService answers;
+    private final VoteService votes;
+    private final CommentService comments;
+    private final BountyService bounties;
+
+    public DemoDataSeeder(IdentityApi identity, UserRegistrationService registration, AdminUserService admins,
+                          CourseService courses, QuestionCommandService questions, AnswerCommandService answers,
+<span class="nc" id="L52">                          VoteService votes, CommentService comments, BountyService bounties) {</span>
+<span class="nc" id="L53">        this.identity = identity;</span>
+<span class="nc" id="L54">        this.registration = registration;</span>
+<span class="nc" id="L55">        this.admins = admins;</span>
+<span class="nc" id="L56">        this.courses = courses;</span>
+<span class="nc" id="L57">        this.questions = questions;</span>
+<span class="nc" id="L58">        this.answers = answers;</span>
+<span class="nc" id="L59">        this.votes = votes;</span>
+<span class="nc" id="L60">        this.comments = comments;</span>
+<span class="nc" id="L61">        this.bounties = bounties;</span>
+<span class="nc" id="L62">    }</span>
+
+    @Override
+    public void run(ApplicationArguments args) {
+<span class="nc bnc" id="L66" title="All 2 branches missed.">        if (identity.findByDisplayName(&quot;系统管理员&quot;).isPresent()) {</span>
+<span class="nc" id="L67">            log.info(&quot;演示数据已存在，跳过初始化&quot;);</span>
+<span class="nc" id="L68">            return;</span>
+        }
+<span class="nc" id="L70">        Actor system = new Actor(0L, &quot;system&quot;, Role.ADMIN); // 引导用虚拟主体，仅用于创建第一个管理员</span>
+
+<span class="nc" id="L72">        long adminId = admins.createStaff(system, new CreateStaffCommand(&quot;admin01&quot;, &quot;系统管理员&quot;,</span>
+                &quot;admin@campus.edu.cn&quot;, PASSWORD, Role.ADMIN, &quot;信息中心&quot;));
+<span class="nc" id="L74">        Actor admin = new Actor(adminId, &quot;系统管理员&quot;, Role.ADMIN);</span>
+
+<span class="nc" id="L76">        long teacherId = admins.createStaff(admin, new CreateStaffCommand(&quot;T2001&quot;, &quot;王老师&quot;, &quot;wang@campus.edu.cn&quot;,</span>
+                PASSWORD, Role.TEACHER, &quot;计算机工程学院&quot;));
+<span class="nc" id="L78">        long taId = admins.createStaff(admin, new CreateStaffCommand(&quot;TA3001&quot;, &quot;李助教&quot;, &quot;li@campus.edu.cn&quot;,</span>
+                PASSWORD, Role.TA, &quot;计算机工程学院&quot;));
+<span class="nc" id="L80">        Actor teacher = new Actor(teacherId, &quot;王老师&quot;, Role.TEACHER);</span>
+<span class="nc" id="L81">        Actor ta = new Actor(taId, &quot;李助教&quot;, Role.TA);</span>
+
+<span class="nc" id="L83">        long mingId = registration.register(new RegisterUserCommand(&quot;2023001&quot;, &quot;小明&quot;, &quot;ming@campus.edu.cn&quot;,</span>
+                PASSWORD, &quot;计算机工程学院&quot;, &quot;计科2301&quot;));
+<span class="nc" id="L85">        long hongId = registration.register(new RegisterUserCommand(&quot;2023002&quot;, &quot;小红&quot;, &quot;hong@campus.edu.cn&quot;,</span>
+                PASSWORD, &quot;计算机工程学院&quot;, &quot;计科2301&quot;));
+<span class="nc" id="L87">        long gangId = registration.register(new RegisterUserCommand(&quot;2023003&quot;, &quot;小刚&quot;, &quot;gang@campus.edu.cn&quot;,</span>
+                PASSWORD, &quot;计算机工程学院&quot;, &quot;计科2302&quot;));
+<span class="nc" id="L89">        Actor ming = new Actor(mingId, &quot;小明&quot;, Role.STUDENT);</span>
+<span class="nc" id="L90">        Actor hong = new Actor(hongId, &quot;小红&quot;, Role.STUDENT);</span>
+<span class="nc" id="L91">        Actor gang = new Actor(gangId, &quot;小刚&quot;, Role.STUDENT);</span>
+<span class="nc" id="L92">        List.of(mingId, hongId, gangId).forEach(id -&gt; admins.verify(admin, id));</span>
+
+<span class="nc" id="L94">        long courseId = courses.create(teacher, new CreateCourseCommand(&quot;CS2001&quot;, &quot;数据结构&quot;, &quot;2026-秋&quot;));</span>
+<span class="nc" id="L95">        courses.join(ta, courseId);</span>
+<span class="nc" id="L96">        courses.assignRole(teacher, courseId, taId, CourseRole.TA);</span>
+<span class="nc" id="L97">        List.of(ming, hong, gang).forEach(s -&gt; courses.join(s, courseId));</span>
+
+<span class="nc" id="L99">        long q1 = questions.post(ming, new PostQuestionCommand(courseId, &quot;红黑树插入新节点后为什么必须旋转？&quot;,</span>
+                &quot;&quot;&quot;
+                课上讲到红黑树插入后要做变色和旋转，我理解变色是为了维持“红节点不能相邻”，
+                但是为什么某些情况下仅靠变色不够、一定要旋转？有没有一个直观的解释方式？
+
+                ```java
+                void insertFixup(Node z) { /* ... */ }
+                ```
+<span class="nc" id="L107">                &quot;&quot;&quot;, List.of(&quot;数据结构&quot;, &quot;红黑树&quot;)));</span>
+
+<span class="nc" id="L109">        long a1 = answers.submit(hong, q1, &quot;&quot;&quot;</span>
+                关键在于**黑高**这个不变量：变色只能在局部交换红黑属性，不能改变某条路径上的黑节点个数分布；
+                当“父节点与叔节点”颜色不同（叔节点为黑）时，单纯变色会破坏黑高平衡，只能通过旋转把子树结构改成
+                可以合法变色的形态。可以这样记：**叔红变色、叔黑旋转**。
+                &quot;&quot;&quot;);
+<span class="nc" id="L114">        answers.submit(teacher, q1, &quot;&quot;&quot;</span>
+                补充一个动手的办法：用 5、3、7、1、2 这个序列手工插入一遍，
+                在每一步画出树并标注黑高，你会看到第 5 个元素插入时不旋转必然出现两个相邻红节点。
+                &quot;&quot;&quot;);
+
+<span class="nc" id="L119">        votes.cast(gang, TargetType.ANSWER, a1, 1);</span>
+<span class="nc" id="L120">        votes.cast(ming, TargetType.ANSWER, a1, 1);</span>
+<span class="nc" id="L121">        votes.cast(gang, TargetType.QUESTION, q1, 1);</span>
+<span class="nc" id="L122">        answers.endorse(teacher, a1);</span>
+<span class="nc" id="L123">        answers.accept(ming, q1, a1);</span>
+<span class="nc" id="L124">        comments.post(gang, new PostCommentCommand(TargetType.ANSWER, a1, null, &quot;@小红 “叔红变色、叔黑旋转”这个口诀太好记了，谢谢！&quot;));</span>
+
+<span class="nc" id="L126">        long q2 = questions.post(gang, new PostQuestionCommand(courseId,</span>
+                &quot;Spring Boot 中 @Transactional 为什么在同类方法调用时会失效？&quot;,
+                &quot;&quot;&quot;
+                我在 Service 里写了 `public void a() { b(); }`，其中 `b()` 上标了 `@Transactional`，
+                但是抛异常后数据并没有回滚。换成从另一个 Bean 调用 `b()` 就正常了，这是为什么？
+<span class="nc" id="L131">                &quot;&quot;&quot;, List.of(&quot;java&quot;, &quot;spring-boot&quot;, &quot;事务&quot;)));</span>
+<span class="nc" id="L132">        bounties.open(teacher, q2, 50, 7);</span>
+
+<span class="nc" id="L134">        questions.post(hong, new PostQuestionCommand(courseId, &quot;MySQL 的 ngram 全文索引是如何支持中文检索的？&quot;,</span>
+                &quot;&quot;&quot;
+                默认的全文索引按空格分词，对中文几乎无效。课程项目里用到了 `WITH PARSER ngram`，
+                想知道它的分词粒度 `ngram_token_size` 如何影响检索效果和索引体积？
+<span class="nc" id="L138">                &quot;&quot;&quot;, List.of(&quot;mysql&quot;, &quot;全文检索&quot;)));</span>
+
+<span class="nc" id="L140">        log.info(&quot;演示数据初始化完成：管理员 admin01 / 教师 T2001 / 助教 TA3001 / 学生 2023001-2023003，密码 {}&quot;, PASSWORD);</span>
+<span class="nc" id="L141">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

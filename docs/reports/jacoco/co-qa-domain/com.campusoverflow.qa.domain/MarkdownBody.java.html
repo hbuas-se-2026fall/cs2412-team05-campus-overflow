@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>MarkdownBody.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Q&amp;A 问答核心 :: domain（纯 Java）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.qa.domain</a> &gt; <span class="el_source">MarkdownBody.java</span></div><h1>MarkdownBody.java</h1><pre class="source lang-java linenums">package com.campusoverflow.qa.domain;
+
+import com.campusoverflow.shared.domain.Guard;
+
+/** Markdown 正文。只保存原文；渲染与 XSS 净化在基础设施层完成。 */
+<span class="fc" id="L6">public record MarkdownBody(String value) {</span>
+
+    public static MarkdownBody ofQuestion(String raw) {
+<span class="fc" id="L9">        return new MarkdownBody(Guard.requireText(raw, 1, 10000, &quot;QA-1002&quot;, &quot;正文&quot;));</span>
+    }
+
+    public static MarkdownBody ofAnswer(String raw) {
+<span class="fc" id="L13">        return new MarkdownBody(Guard.requireText(raw, 1, 10000, &quot;QA-1002&quot;, &quot;正文&quot;));</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

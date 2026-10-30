@@ -1,0 +1,14 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.page,PageResult,60,0,2,0,6,0,5,0,4,0
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.page,PageRequest,27,0,0,0,5,0,2,0,2,0
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.util,Masking,2,38,3,5,1,6,3,3,0,2
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.util,UtcTime,16,0,4,0,2,0,4,0,2,0
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.event,EventIds,3,0,0,0,1,0,1,0,1,0
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.security,Actor,41,0,8,0,4,0,8,0,4,0
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.security,Role,42,0,0,0,9,0,3,0,3,0
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.domain,BusinessRuleException,7,0,0,0,3,0,2,0,2,0
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.domain,ConflictException,7,0,0,0,3,0,2,0,2,0
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.domain,ForbiddenException,7,0,0,0,3,0,2,0,2,0
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.domain,DomainException,10,0,0,0,4,0,2,0,2,0
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.domain,Guard,51,0,10,0,10,0,7,0,2,0
+CampusOverflow :: Shared Kernel,com.campusoverflow.shared.domain,NotFoundException,7,0,0,0,3,0,2,0,2,0

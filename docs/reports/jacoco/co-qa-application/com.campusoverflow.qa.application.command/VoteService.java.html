@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>VoteService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Q&amp;A 问答核心 :: application（用例编排）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.qa.application.command</a> &gt; <span class="el_source">VoteService.java</span></div><h1>VoteService.java</h1><pre class="source lang-java linenums">package com.campusoverflow.qa.application.command;
+
+import com.campusoverflow.qa.api.event.VoteCastEvent;
+import com.campusoverflow.qa.domain.Answer;
+import com.campusoverflow.qa.domain.AnswerRepository;
+import com.campusoverflow.qa.domain.Question;
+import com.campusoverflow.qa.domain.QuestionRepository;
+import com.campusoverflow.qa.domain.TargetType;
+import com.campusoverflow.qa.domain.Vote;
+import com.campusoverflow.qa.domain.VoteRepository;
+import com.campusoverflow.shared.domain.BusinessRuleException;
+import com.campusoverflow.shared.domain.NotFoundException;
+import com.campusoverflow.shared.event.EventIds;
+import com.campusoverflow.shared.event.IntegrationEventPublisher;
+import com.campusoverflow.shared.security.Actor;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.Optional;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 用例：投票 / 改投 / 撤销。
+ * value ∈ {-1, 0, 1}，0 表示撤销。
+ * 事件携带旧值与新值，供下游计算声誉增量。
+ */
+@Service
+public class VoteService {
+
+    private final VoteRepository votes;
+    private final QuestionRepository questions;
+    private final AnswerRepository answers;
+    private final IntegrationEventPublisher events;
+    private final Clock clock;
+
+    public VoteService(
+            VoteRepository votes,
+            QuestionRepository questions,
+            AnswerRepository answers,
+            IntegrationEventPublisher events,
+<span class="fc" id="L41">            Clock clock) {</span>
+<span class="fc" id="L42">        this.votes = votes;</span>
+<span class="fc" id="L43">        this.questions = questions;</span>
+<span class="fc" id="L44">        this.answers = answers;</span>
+<span class="fc" id="L45">        this.events = events;</span>
+<span class="fc" id="L46">        this.clock = clock;</span>
+<span class="fc" id="L47">    }</span>
+
+<span class="fc" id="L49">    public record VoteResult(int myVote, int scoreDelta) {</span>
+    }
+
+<span class="fc" id="L52">    private record Target(long authorId, long questionId) {</span>
+    }
+
+    @Transactional
+    public VoteResult cast(Actor actor, TargetType type, long targetId, int value) {
+<span class="pc bpc" id="L57" title="1 of 2 branches missed.">        if (actor == null) {</span>
+<span class="nc" id="L58">            throw new IllegalArgumentException(&quot;操作人不能为空&quot;);</span>
+        }
+
+<span class="pc bpc" id="L61" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L62">            throw new BusinessRuleException(&quot;QA-1015&quot;, &quot;投票目标类型不能为空&quot;);</span>
+        }
+
+<span class="pc bpc" id="L65" title="2 of 6 branches missed.">        if (value != -1 &amp;&amp; value != 0 &amp;&amp; value != 1) {</span>
+<span class="nc" id="L66">            throw new BusinessRuleException(&quot;QA-1015&quot;, &quot;投票值只能是 -1、0 或 1&quot;);</span>
+        }
+
+<span class="fc" id="L69">        Optional&lt;Vote&gt; existing =</span>
+<span class="fc" id="L70">                votes.find(actor.userId(), type, targetId);</span>
+
+<span class="fc" id="L72">        int oldValue = existing.map(Vote::value).orElse(0);</span>
+
+        // 已有投票被重复提交时直接返回，避免重复查询目标、更新分数或发布事件。
+<span class="fc bfc" id="L75" title="All 4 branches covered.">        if (existing.isPresent() &amp;&amp; oldValue == value) {</span>
+<span class="fc" id="L76">            return new VoteResult(oldValue, 0);</span>
+        }
+
+        // 首次投票和改投仍需验证目标存在、未删除，并取得内容作者。
+<span class="fc" id="L80">        Target target = resolve(type, targetId);</span>
+<span class="fc" id="L81">        Instant now = clock.instant();</span>
+
+<span class="pc bpc" id="L83" title="1 of 2 branches missed.">        if (value == 0) {</span>
+            // 撤销已有投票。
+<span class="nc" id="L85">            existing.ifPresent(votes::delete);</span>
+<span class="fc bfc" id="L86" title="All 2 branches covered.">        } else if (existing.isPresent()) {</span>
+            // 修改已有投票。
+<span class="fc" id="L88">            Vote vote = existing.get();</span>
+<span class="fc" id="L89">            vote.change(value, now);</span>
+<span class="fc" id="L90">            votes.save(vote);</span>
+<span class="fc" id="L91">        } else {</span>
+            // 创建新投票。领域对象负责禁止给自己的内容投票。
+<span class="fc" id="L93">            Vote vote = Vote.cast(</span>
+<span class="fc" id="L94">                    actor.userId(),</span>
+<span class="fc" id="L95">                    target.authorId(),</span>
+                    type,
+                    targetId,
+                    value,
+                    now);
+
+<span class="fc" id="L101">            votes.save(vote);</span>
+        }
+
+<span class="fc" id="L104">        int scoreDelta = value - oldValue;</span>
+
+<span class="pc bpc" id="L106" title="1 of 2 branches missed.">        if (type == TargetType.QUESTION) {</span>
+<span class="nc" id="L107">            questions.adjustScore(targetId, scoreDelta);</span>
+        } else {
+<span class="fc" id="L109">            answers.adjustScore(targetId, scoreDelta);</span>
+        }
+
+<span class="fc" id="L112">        events.publish(new VoteCastEvent(</span>
+<span class="fc" id="L113">                EventIds.next(),</span>
+                now,
+<span class="fc" id="L115">                type.name(),</span>
+                targetId,
+<span class="fc" id="L117">                target.authorId(),</span>
+<span class="fc" id="L118">                actor.userId(),</span>
+<span class="fc" id="L119">                target.questionId(),</span>
+                oldValue,
+                value));
+
+<span class="fc" id="L123">        return new VoteResult(value, scoreDelta);</span>
+    }
+
+    private Target resolve(TargetType type, long targetId) {
+<span class="pc bpc" id="L127" title="1 of 2 branches missed.">        if (targetId &lt;= 0) {</span>
+<span class="nc" id="L128">            throw new BusinessRuleException(&quot;QA-1015&quot;, &quot;投票目标 ID 无效&quot;);</span>
+        }
+
+<span class="fc bfc" id="L131" title="All 2 branches covered.">        if (type == TargetType.QUESTION) {</span>
+<span class="fc" id="L132">            Question question = questions.findById(targetId)</span>
+<span class="fc" id="L133">                    .orElseThrow(() -&gt;</span>
+<span class="nc" id="L134">                            new NotFoundException(</span>
+                                    &quot;QA-4001&quot;, &quot;问题不存在，ID：&quot; + targetId));
+
+<span class="pc bpc" id="L137" title="1 of 2 branches missed.">            if (question.isDeleted()) {</span>
+<span class="nc" id="L138">                throw new BusinessRuleException(&quot;QA-1015&quot;, &quot;不能给已删除的问题投票&quot;);</span>
+            }
+
+<span class="fc" id="L141">            return new Target(question.authorId(), question.id());</span>
+        }
+
+<span class="pc bpc" id="L144" title="1 of 2 branches missed.">        if (type == TargetType.ANSWER) {</span>
+<span class="fc" id="L145">            Answer answer = answers.findById(targetId)</span>
+<span class="fc" id="L146">                    .orElseThrow(() -&gt;</span>
+<span class="fc" id="L147">                            new NotFoundException(</span>
+                                    &quot;QA-4002&quot;, &quot;回答不存在，ID：&quot; + targetId));
+
+<span class="pc bpc" id="L150" title="1 of 2 branches missed.">            if (answer.isDeleted()) {</span>
+<span class="nc" id="L151">                throw new BusinessRuleException(&quot;QA-1015&quot;, &quot;不能给已删除的回答投票&quot;);</span>
+            }
+
+            // 通过问题确认回答所属关系，并取得所属问题 ID。
+<span class="fc" id="L155">            Question question = questions.findById(answer.questionId())</span>
+<span class="fc" id="L156">                    .orElseThrow(() -&gt;</span>
+<span class="nc" id="L157">                            new NotFoundException(</span>
+                                    &quot;QA-4001&quot;, &quot;回答所属的问题不存在&quot;));
+
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">            if (question.isDeleted()) {</span>
+<span class="nc" id="L161">                throw new BusinessRuleException(&quot;QA-1015&quot;, &quot;不能给已删除问题下的回答投票&quot;);</span>
+            }
+
+<span class="fc" id="L164">            return new Target(answer.authorId(), question.id());</span>
+        }
+
+<span class="nc" id="L167">        throw new BusinessRuleException(&quot;QA-1015&quot;, &quot;不支持的投票目标类型&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

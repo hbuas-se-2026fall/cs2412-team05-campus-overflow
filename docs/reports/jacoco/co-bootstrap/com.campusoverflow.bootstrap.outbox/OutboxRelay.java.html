@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OutboxRelay.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">CampusOverflow :: Bootstrap（启动装配）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.bootstrap.outbox</a> &gt; <span class="el_source">OutboxRelay.java</span></div><h1>OutboxRelay.java</h1><pre class="source lang-java linenums">package com.campusoverflow.bootstrap.outbox;
+
+import com.campusoverflow.shared.event.IntegrationEvent;
+import com.campusoverflow.shared.util.UtcTime;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
+
+/**
+ * 发件箱中继：轮询未投递事件 → 反序列化 → 通过进程内事件总线（ApplicationEventPublisher）分发给订阅者。
+ * &lt;ul&gt;
+ *   &lt;li&gt;认领：SELECT ... FOR UPDATE SKIP LOCKED + 租约（locked_until），支持多实例并行而不重复认领；&lt;/li&gt;
+ *   &lt;li&gt;投递语义：至少一次。订阅者必须幂等（账本唯一键 / processed_event 表）；&lt;/li&gt;
+ *   &lt;li&gt;顺序：批内按 id 顺序投递，遇到失败即停止本批（避免后续事件越过失败事件），失败事件指数退避重试；&lt;/li&gt;
+ *   &lt;li&gt;超过最大重试次数即成为“死信”，由指标 co_outbox_dead_letters 暴露并告警，人工处理后可将 attempts 清零重放。&lt;/li&gt;
+ * &lt;/ul&gt;
+ */
+@Component
+public class OutboxRelay {
+
+<span class="nc" id="L38">    private static final Logger log = LoggerFactory.getLogger(OutboxRelay.class);</span>
+<span class="nc" id="L39">    private static final Duration LEASE = Duration.ofSeconds(30);</span>
+
+    private final JdbcTemplate jdbc;
+    private final NamedParameterJdbcTemplate named;
+    private final TransactionTemplate tx;
+    private final ApplicationEventPublisher bus;
+    private final ObjectMapper mapper;
+    private final Clock clock;
+    private final int batchSize;
+    private final int maxAttempts;
+<span class="nc" id="L49">    private final String instanceId = UUID.randomUUID().toString().substring(0, 8);</span>
+    private final Counter published;
+    private final Counter failed;
+
+<span class="nc" id="L53">    private record Row(long id, String eventId, String type, String payload) {</span>
+    }
+
+    public OutboxRelay(JdbcTemplate jdbc, NamedParameterJdbcTemplate named, TransactionTemplate tx,
+                       ApplicationEventPublisher bus, ObjectMapper mapper, Clock clock, MeterRegistry registry,
+                       @Value(&quot;${co.outbox.batch-size:100}&quot;) int batchSize,
+<span class="nc" id="L59">                       @Value(&quot;${co.outbox.max-attempts:10}&quot;) int maxAttempts) {</span>
+<span class="nc" id="L60">        this.jdbc = jdbc;</span>
+<span class="nc" id="L61">        this.named = named;</span>
+<span class="nc" id="L62">        this.tx = tx;</span>
+<span class="nc" id="L63">        this.bus = bus;</span>
+<span class="nc" id="L64">        this.mapper = mapper;</span>
+<span class="nc" id="L65">        this.clock = clock;</span>
+<span class="nc" id="L66">        this.batchSize = batchSize;</span>
+<span class="nc" id="L67">        this.maxAttempts = maxAttempts;</span>
+<span class="nc" id="L68">        this.published = registry.counter(&quot;co_outbox_published_total&quot;);</span>
+<span class="nc" id="L69">        this.failed = registry.counter(&quot;co_outbox_failed_total&quot;);</span>
+<span class="nc" id="L70">        Gauge.builder(&quot;co_outbox_backlog&quot;, this, r -&gt; r.count(&quot;attempts &lt; &quot; + maxAttempts)).register(registry);</span>
+<span class="nc" id="L71">        Gauge.builder(&quot;co_outbox_dead_letters&quot;, this, r -&gt; r.count(&quot;attempts &gt;= &quot; + maxAttempts)).register(registry);</span>
+<span class="nc" id="L72">    }</span>
+
+    @Scheduled(fixedDelayString = &quot;${co.outbox.poll-interval-ms:500}&quot;)
+    public void relay() {
+<span class="nc" id="L76">        List&lt;Row&gt; batch = claim();</span>
+<span class="nc bnc" id="L77" title="All 2 branches missed.">        for (Row row : batch) {</span>
+<span class="nc bnc" id="L78" title="All 2 branches missed.">            if (!dispatch(row)) {</span>
+<span class="nc" id="L79">                release(batch, row);</span>
+<span class="nc" id="L80">                break;</span>
+            }
+<span class="nc" id="L82">        }</span>
+<span class="nc" id="L83">    }</span>
+
+    private List&lt;Row&gt; claim() {
+<span class="nc" id="L86">        List&lt;Row&gt; rows = tx.execute(status -&gt; {</span>
+<span class="nc" id="L87">            LocalDateTime now = UtcTime.toDb(clock.instant());</span>
+<span class="nc" id="L88">            List&lt;Long&gt; ids = jdbc.queryForList(&quot;&quot;&quot;</span>
+                    SELECT id FROM outbox_event
+                    WHERE published_at IS NULL AND attempts &lt; ? AND (locked_until IS NULL OR locked_until &lt; ?)
+                    ORDER BY id LIMIT ? FOR UPDATE SKIP LOCKED
+<span class="nc" id="L92">                    &quot;&quot;&quot;, Long.class, maxAttempts, now, batchSize);</span>
+<span class="nc bnc" id="L93" title="All 2 branches missed.">            if (ids.isEmpty()) {</span>
+<span class="nc" id="L94">                return List.of();</span>
+            }
+<span class="nc" id="L96">            MapSqlParameterSource p = new MapSqlParameterSource(&quot;ids&quot;, ids)</span>
+<span class="nc" id="L97">                    .addValue(&quot;until&quot;, UtcTime.toDb(clock.instant().plus(LEASE))).addValue(&quot;owner&quot;, instanceId);</span>
+<span class="nc" id="L98">            named.update(&quot;UPDATE outbox_event SET locked_until = :until, locked_by = :owner WHERE id IN (:ids)&quot;, p);</span>
+<span class="nc" id="L99">            return named.query(&quot;SELECT id, event_id, event_type, payload FROM outbox_event WHERE id IN (:ids) ORDER BY id&quot;,</span>
+<span class="nc" id="L100">                    p, (rs, i) -&gt; new Row(rs.getLong(&quot;id&quot;), rs.getString(&quot;event_id&quot;), rs.getString(&quot;event_type&quot;),</span>
+<span class="nc" id="L101">                            rs.getString(&quot;payload&quot;)));</span>
+        });
+<span class="nc bnc" id="L103" title="All 2 branches missed.">        return rows == null ? List.of() : rows;</span>
+    }
+
+    private boolean dispatch(Row row) {
+        try {
+<span class="nc" id="L108">            Class&lt;?&gt; type = Class.forName(row.type());</span>
+<span class="nc bnc" id="L109" title="All 2 branches missed.">            if (!IntegrationEvent.class.isAssignableFrom(type)) {</span>
+<span class="nc" id="L110">                throw new IllegalStateException(&quot;非法事件类型: &quot; + row.type()); // 防御反序列化攻击</span>
+            }
+<span class="nc" id="L112">            bus.publishEvent(mapper.readValue(row.payload(), type));</span>
+<span class="nc" id="L113">            jdbc.update(&quot;UPDATE outbox_event SET published_at = ?, locked_until = NULL, last_error = NULL WHERE id = ?&quot;,</span>
+<span class="nc" id="L114">                    UtcTime.toDb(clock.instant()), row.id());</span>
+<span class="nc" id="L115">            published.increment();</span>
+<span class="nc" id="L116">            return true;</span>
+<span class="nc" id="L117">        } catch (Exception e) {</span>
+<span class="nc" id="L118">            failed.increment();</span>
+<span class="nc" id="L119">            Integer attempts = jdbc.queryForObject(&quot;SELECT attempts FROM outbox_event WHERE id = ?&quot;, Integer.class, row.id());</span>
+<span class="nc bnc" id="L120" title="All 2 branches missed.">            int next = (attempts == null ? 0 : attempts) + 1;</span>
+<span class="nc" id="L121">            Instant retryAt = clock.instant().plusSeconds(Math.min(1L &lt;&lt; Math.min(next, 8), 300));</span>
+<span class="nc" id="L122">            String error = String.valueOf(e.getMessage());</span>
+<span class="nc" id="L123">            jdbc.update(&quot;UPDATE outbox_event SET attempts = ?, locked_until = ?, last_error = ? WHERE id = ?&quot;,</span>
+<span class="nc bnc" id="L124" title="All 2 branches missed.">                    next, UtcTime.toDb(retryAt), error.length() &gt; 500 ? error.substring(0, 500) : error, row.id());</span>
+<span class="nc" id="L125">            log.warn(&quot;事件投递失败 id={} type={} attempts={}: {}&quot;, row.id(), row.type(), next, error);</span>
+<span class="nc" id="L126">            return false;</span>
+        }
+    }
+
+    /** 本批中失败事件之后的行提前释放租约，下个周期重新认领（保证顺序）。 */
+    private void release(List&lt;Row&gt; batch, Row failedRow) {
+<span class="nc bnc" id="L132" title="All 2 branches missed.">        List&lt;Long&gt; rest = batch.stream().map(Row::id).filter(id -&gt; id &gt; failedRow.id()).toList();</span>
+<span class="nc bnc" id="L133" title="All 2 branches missed.">        if (!rest.isEmpty()) {</span>
+<span class="nc" id="L134">            named.update(&quot;UPDATE outbox_event SET locked_until = NULL WHERE id IN (:ids) AND published_at IS NULL&quot;,</span>
+                    new MapSqlParameterSource(&quot;ids&quot;, rest));
+        }
+<span class="nc" id="L137">    }</span>
+
+    /** 已投递事件保留 7 天，便于排查与重放。 */
+    @Scheduled(cron = &quot;${co.outbox.cleanup-cron:0 0 4 * * *}&quot;)
+    public void cleanup() {
+<span class="nc" id="L142">        int n = jdbc.update(&quot;DELETE FROM outbox_event WHERE published_at IS NOT NULL AND published_at &lt; ?&quot;,</span>
+<span class="nc" id="L143">                UtcTime.toDb(clock.instant().minus(Duration.ofDays(7))));</span>
+<span class="nc" id="L144">        log.info(&quot;清理已投递的发件箱事件 {} 条&quot;, n);</span>
+<span class="nc" id="L145">    }</span>
+
+    private double count(String condition) {
+        try {
+<span class="nc" id="L149">            Long n = jdbc.queryForObject(&quot;SELECT COUNT(*) FROM outbox_event WHERE published_at IS NULL AND &quot;</span>
+                    + condition, Long.class);
+<span class="nc bnc" id="L151" title="All 2 branches missed.">            return n == null ? 0 : n;</span>
+<span class="nc" id="L152">        } catch (RuntimeException e) {</span>
+<span class="nc" id="L153">            return Double.NaN;</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

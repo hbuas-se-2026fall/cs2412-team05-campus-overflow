@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PageResult.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">CampusOverflow :: Shared Kernel</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.shared.page</a> &gt; <span class="el_source">PageResult.java</span></div><h1>PageResult.java</h1><pre class="source lang-java linenums">package com.campusoverflow.shared.page;
+
+import java.util.List;
+import java.util.function.Function;
+
+/** 与框架无关的分页结果。page 从 1 开始。 */
+public record PageResult&lt;T&gt;(List&lt;T&gt; items, long total, int page, int size) {
+
+<span class="nc" id="L9">    public PageResult {</span>
+<span class="nc" id="L10">        items = List.copyOf(items);</span>
+<span class="nc" id="L11">    }</span>
+
+    public static &lt;T&gt; PageResult&lt;T&gt; empty(int page, int size) {
+<span class="nc" id="L14">        return new PageResult&lt;&gt;(List.of(), 0, page, size);</span>
+    }
+
+    public &lt;R&gt; PageResult&lt;R&gt; map(Function&lt;T, R&gt; mapper) {
+<span class="nc" id="L18">        return new PageResult&lt;&gt;(items.stream().map(mapper).toList(), total, page, size);</span>
+    }
+
+    public long totalPages() {
+<span class="nc bnc" id="L22" title="All 2 branches missed.">        return size == 0 ? 0 : (total + size - 1) / size;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

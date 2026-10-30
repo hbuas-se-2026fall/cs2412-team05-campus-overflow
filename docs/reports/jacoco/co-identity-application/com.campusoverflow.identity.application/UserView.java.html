@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserView.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Identity 身份与认证 :: application（用例编排）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.identity.application</a> &gt; <span class="el_source">UserView.java</span></div><h1>UserView.java</h1><pre class="source lang-java linenums">package com.campusoverflow.identity.application;
+
+import com.campusoverflow.shared.security.Role;
+import java.time.Instant;
+
+/** 管理员视图：学号/工号已脱敏。 */
+<span class="nc" id="L7">public record UserView(long id, String maskedUsername, String displayName, Role role, boolean verified,</span>
+                       String college, String className, Instant createdAt) {
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

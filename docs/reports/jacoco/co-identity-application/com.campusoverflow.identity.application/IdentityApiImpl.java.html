@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>IdentityApiImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Identity 身份与认证 :: application（用例编排）</a> &gt; <a href="index.source.html" class="el_package">com.campusoverflow.identity.application</a> &gt; <span class="el_source">IdentityApiImpl.java</span></div><h1>IdentityApiImpl.java</h1><pre class="source lang-java linenums">package com.campusoverflow.identity.application;
+
+import com.campusoverflow.identity.api.CourseSummary;
+import com.campusoverflow.identity.api.IdentityApi;
+import com.campusoverflow.identity.api.UserSummary;
+import com.campusoverflow.identity.domain.CourseRepository;
+import com.campusoverflow.identity.domain.User;
+import com.campusoverflow.identity.domain.UserRepository;
+import com.campusoverflow.shared.security.Role;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** 开放主机服务的实现：把领域对象翻译为发布语言（UserSummary / CourseSummary）。 */
+@Service
+@Transactional(readOnly = true)
+public class IdentityApiImpl implements IdentityApi {
+
+    private final UserRepository users;
+    private final CourseRepository courses;
+
+<span class="nc" id="L26">    public IdentityApiImpl(UserRepository users, CourseRepository courses) {</span>
+<span class="nc" id="L27">        this.users = users;</span>
+<span class="nc" id="L28">        this.courses = courses;</span>
+<span class="nc" id="L29">    }</span>
+
+    @Override
+    public Optional&lt;UserSummary&gt; findUser(long userId) {
+<span class="nc" id="L33">        return users.findById(userId).map(IdentityApiImpl::toSummary);</span>
+    }
+
+    @Override
+    public Map&lt;Long, UserSummary&gt; findUsers(Collection&lt;Long&gt; userIds) {
+<span class="nc bnc" id="L38" title="All 4 branches missed.">        if (userIds == null || userIds.isEmpty()) {</span>
+<span class="nc" id="L39">            return Map.of();</span>
+        }
+<span class="nc" id="L41">        return users.findAllById(userIds.stream().distinct().toList()).stream()</span>
+<span class="nc" id="L42">                .map(IdentityApiImpl::toSummary)</span>
+<span class="nc" id="L43">                .collect(Collectors.toMap(UserSummary::id, Function.identity()));</span>
+    }
+
+    @Override
+    public Optional&lt;UserSummary&gt; findByDisplayName(String displayName) {
+<span class="nc" id="L48">        return users.findByDisplayName(displayName).map(IdentityApiImpl::toSummary);</span>
+    }
+
+    @Override
+    public Optional&lt;CourseSummary&gt; findCourse(long courseId) {
+<span class="nc" id="L53">        return courses.findById(courseId)</span>
+<span class="nc" id="L54">                .map(c -&gt; new CourseSummary(c.id(), c.code(), c.name(), c.term(), c.teacherId()));</span>
+    }
+
+    @Override
+    public boolean canManageCourse(long userId, Long courseId) {
+<span class="nc" id="L59">        Optional&lt;User&gt; user = users.findById(userId);</span>
+<span class="nc bnc" id="L60" title="All 2 branches missed.">        if (user.isEmpty()) {</span>
+<span class="nc" id="L61">            return false;</span>
+        }
+<span class="nc" id="L63">        Role role = user.get().role();</span>
+<span class="nc bnc" id="L64" title="All 2 branches missed.">        if (role == Role.ADMIN) {</span>
+<span class="nc" id="L65">            return true;</span>
+        }
+<span class="nc bnc" id="L67" title="All 2 branches missed.">        if (courseId == null) {</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            return role == Role.TEACHER;</span>
+        }
+<span class="nc" id="L70">        return courses.findMember(courseId, userId)</span>
+<span class="nc bnc" id="L71" title="All 4 branches missed.">                .map(m -&gt; m.isApproved() &amp;&amp; m.role().canManage()).orElse(false);</span>
+    }
+
+    private static UserSummary toSummary(User u) {
+<span class="nc" id="L75">        return new UserSummary(u.id(), u.displayName(), u.role(), u.verified(), u.college());</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

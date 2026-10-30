@@ -1,0 +1,16 @@
+GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,UserQueryService,48,0,0,0,7,0,3,0,3,0
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,UserView,27,0,0,0,1,0,1,0,1,0
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,CreateCourseCommand,12,0,0,0,1,0,1,0,1,0
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,CreateStaffCommand,21,0,0,0,1,0,1,0,1,0
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,AuthenticationAuditService,30,0,0,0,7,0,3,0,3,0
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,UserRegistrationService,120,0,6,0,24,0,6,0,3,0
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,AdminUserService,222,0,8,0,38,0,13,0,9,0
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,CourseMemberView,0,15,0,0,0,1,0,1,0,1
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,MeView,0,30,0,0,0,1,0,1,0,1
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,UpdateProfileCommand,0,15,0,0,0,1,0,1,0,1
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,UserProfileService,38,63,4,0,2,17,7,3,5,3
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,CourseService,325,192,24,10,47,39,28,12,13,10
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,RegisterUserCommand,21,0,0,0,1,0,1,0,1,0
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,CourseView,24,0,0,0,1,0,1,0,1,0
+Identity 身份与认证 :: application（用例编排）,com.campusoverflow.identity.application,IdentityApiImpl,138,0,16,0,24,0,17,0,9,0
