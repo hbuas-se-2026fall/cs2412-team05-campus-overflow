@@ -96,24 +96,25 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # 先生成 JaCoCo 覆盖率数据（sonar-project.properties 中 coveragePlugin=jacoco 依赖它）
+      # 先生成 JaCoCo 覆盖率数据（jacoco report goal 绑定在 verify 阶段，
+      # 用 verify 才会产出 sonar-project.properties 中 coveragePlugin=jacoco 依赖的 XML）
       - name: Build backend with coverage data
         working-directory: backend
-        run: mvn -B test -Djacoco.skip=false
+        run: mvn -B verify -DskipITs -Djacoco.skip=false
 
-      # 未配置 secrets.SONAR_TOKEN 时自动跳过并提示，不报红、不破坏现有 CI 全绿；
-      # 服务端地址可通过仓库变量 SONAR_HOST_URL 指定，默认 localhost:9000
+      # SONAR_TOKEN 或 SONAR_HOST_URL 任一未配置时自动跳过并提示，不报红、不破坏 CI 全绿；
+      # 避免"配了 token 却漏配服务端地址"时连接 localhost:9000 失败把 CI 弄红
       - name: SonarQube analysis (backend)
         working-directory: backend
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          if [ -z "$SONAR_TOKEN" ]; then
-            echo "SONAR_TOKEN 未配置，跳过 SonarQube 分析（不影响 CI 状态）。"
+          if [ -z "$SONAR_TOKEN" ] || [ -z "${{ vars.SONAR_HOST_URL }}" ]; then
+            echo "SONAR_TOKEN 或 SONAR_HOST_URL 未配置，跳过 SonarQube 分析（不影响 CI 状态）。"
             exit 0
           fi
           mvn -B sonar:sonar \
-            -Dsonar.host.url="${{ vars.SONAR_HOST_URL || 'http://localhost:9000' }}" \
+            -Dsonar.host.url="${{ vars.SONAR_HOST_URL }}" \
             -Dsonar.token="$SONAR_TOKEN" \
             -Dsonar.qualitygate.wait=false
 
