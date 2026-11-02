@@ -5,6 +5,8 @@
 > 维护人：林恺洋（PO / 仓库管理员）
 > 说明：本清单依据《CampusOverflow 实验指导书 V3》评分构成（Sprint 评审 40% + 最终答辩 25% + 工程质量 20% + 过程协作 15%）与最终交付物维度整理，状态与证据以本仓库 develop 分支（`a0fe901`）为准。正式提交前请对照指导书原文复核条款编号。
 
+> 2026-11-02 过程项更新：下表中的成员材料、评审、看板与会议状态按 develop `c4647f2` 及 GitHub 正式评审重新核对，详见 [SM 过程状态](../team/sm-process-status-2026-11-02.md)；其他项目仍保留原交付快照，不能当作本日重新验证的结果。
+
 ---
 
 ## 1. 交付物总览（对照指导书最终交付物维度）
@@ -17,12 +19,12 @@
 | D4 | 可运行软件 | 演示数据与演示脚本 | `docs/final/demo-script.md`；后端 `demo` profile | 完成 |
 | D5 | 代码提交历史 | Sprint 版本标签链 v0.1.0 → v1.0.0 | `git tag`（v0.1.0/v0.2.0/v0.3.0/v0.9.0/v1.0.0） | 完成 |
 | D6 | 代码提交历史 | 完整 git 历史、规范提交信息 | `git log origin/develop` | 完成 |
-| D7 | 贡献者维度 | 全员按角色提交、贡献记录 | `docs/team/role-commitment-*.md`、`skill-matrix-*.md` | 完成（2 名成员材料在库，其余待补齐） |
+| D7 | 贡献者维度 | 全员按角色提交、贡献记录 | `docs/team/role-commitment-*.md`、`skill-matrix-*.md`、`hello-*.md` | 部分（3 人角色承诺/技能矩阵；5 人章程信息；本人演练须逐人核对，代录 hello 不作本人提交证据） |
 | D8 | PR 与 Code Review | PR 全流程、≥1 非作者 approve、CODEOWNERS 强制评审 | GitHub PR 列表、`.github/CODEOWNERS`、`docs/team/review-checklist.md` | 完成（机制就绪） |
-| D9 | Issue / 看板 / Milestone | 需求建模（PBI/Issue）、看板、Sprint 工件 | `docs/backlog/product-backlog-v1.md`、GitHub Issues #1–#32、看板 | 完成 |
+| D9 | Issue / 看板 / Milestone | 需求建模（PBI/Issue）、看板、Sprint 工件 | `docs/backlog/product-backlog-v1.md`、GitHub Issues #1–#32、看板 | 工件已建立；真实看板流转待核实 |
 | D10 | 分支策略 | develop 默认分支、GitHub Flow、main 受保护 | 仓库 Settings（默认分支 develop、分支保护）、`docs/团队章程v1.0.md` 第 4 节 | 完成 |
 | D11 | CI/CD 状态 | 流水线全绿（backend/frontend/images/deploy） | GitHub Actions 页、`.github/workflows/ci.yml` | 部分（backend/frontend/images 已配置；deploy 待服务器验证） |
-| D12 | Scrum 工件 | 章程、Backlog、Story Map、Gherkin 验收、会议纪要、ADR、DDD 文档、运维手册 | `docs/`（详见 2.2 节） | 完成 |
+| D12 | Scrum 工件 | 章程、Backlog、Story Map、Gherkin 验收、会议纪要、ADR、DDD 文档、运维手册 | `docs/`（详见 2.2 节） | 部分（真实会议纪要尚待确认归档） |
 
 ## 2. 文档工件清单（`docs/` 目录）
 
@@ -67,9 +69,9 @@
 | 项目 | 要求 | 现状 | 状态 |
 |---|---|---|---|
 | Sprint 评审 | 每 Sprint 末 PO 主导演示可运行增量 | 历次评审记录（会议纪要） | 部分（纪要建议补入 `docs/meetings/`） |
-| 每日站会 / 周会 | SM 主持，同步进度 | `docs/team/sm-process-status-2026-10-27.md` | 完成 |
-| PR 审查 | ≥1 非作者 approve；作者不得自审 | CODEOWNERS `* @pengyaoyang @Lin-Kaiyang2412` | 完成 |
-| 看板流转 | PBI → Sprint Backlog → 进行中 → Done | GitHub Projects 看板 | 完成 |
+| 每日站会 / 周会 | SM 主持，同步进度 | SM 状态审计不能代替真实会议；`docs/meetings/` 尚无纪要 | 待确认归档 |
+| PR 审查 | ≥1 非作者 approve；作者不得自审 | CODEOWNERS `* @pengyaoyang111 @Lin-Kaiyang2412`；#2/#3/#4/#49/#51 已有补评，见 [SM 证据表](../team/sm-process-status-2026-11-02.md) | 已补留痕；历史先审后合仍不据此成立 |
+| 看板流转 | PBI → Sprint Backlog → 进行中 → Done | `docs/scrum/projects-board.png` 为初始截图（Todo 25 / In Progress 0 / Done 0） | 待核实真实流转 |
 | 学术诚信 | 未改测试断言、未绕过 PR 保护、无强推 | 见第 6 节自查 | 完成（自查） |
 
 ## 5. 最终答辩（评分 25%）准备项
@@ -94,7 +96,7 @@
 | # | 事项 | 说明 | 建议 |
 |---|---|---|---|
 | T1 | 测试服务器部署验证 | `deploy` job 需要仓库 secrets（`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`）与变量 `DEPLOY_ENABLED=true`、`DEPLOY_PATH` | 答辩前完成一次真实部署并截图冒烟结果 |
-| T2 | 全员贡献材料补齐 | 仅 2 名成员的角色承诺/技能矩阵在库 | 其余成员按模板提交 PR |
+| T2 | 全员贡献材料补齐 | 3 名成员的角色承诺/技能矩阵在库；hello 文件含组长代录 | 按章程逐人核对本人提交与评审证据，缺失者按模板补齐 |
 | T3 | 会议纪要归档 | `docs/meetings/` 为空 | 补录历次站会/评审纪要 |
 | T4 | `CO_FIELD_KEY` 默认值整改 | compose 内硬编码默认值可被解密 | 生产使用 `deploy/.env` 覆盖（运维手册 4.2） |
 | T5 | 悬赏/越权边界验收 | 悬赏积分不足、到期结算、教师/学生越权接口未完全验证（见前端联调记录"待联合验收"） | 由 QA 在专用环境复测后关闭 Issue #11 |
