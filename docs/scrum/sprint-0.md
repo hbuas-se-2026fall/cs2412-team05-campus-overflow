@@ -34,19 +34,19 @@
 | DoD 项 | 结论 | 说明 |
 |---|---|---|
 | 功能实现符合验收标准 | ✅ | 本 Sprint 为基线导入与文档交付，无新增业务故事 |
-| 单元测试通过 | ✅ | 初始框架测试基线（38 个失败测试作为需求说明书，Sprint 1 起逐项转绿） |
-| CI 流水线全绿 | ✅ | GitHub Actions 后端/前端 job 均 success（13 条 runs 全绿） |
-| 代码评审通过 | ⚠️ | PR #4 已合并，但 GitHub 上无正式 review / inline comment 记录（评审留痕待补） |
+| 单元测试通过 | 未通过（初始基线记录） | 初始框架记录包含 38 个失败测试，作为后续需求实现的起点；本次文档修订未重新执行该历史基线测试，不能将其标记为通过 |
+| CI 流水线全绿 | 待核实（历史基线） | 原“13 条 runs 全绿”未对应具体提交与运行链接，不能证明 `v0.1.0` / `2cdfdf1` 当时全绿；后续提交的检查结果另列于第 6 节 |
+| 代码评审通过 | 事后补评 | PR #4 于 2026-10-28 合并，彭耀阳于 2026-10-31 [补交 APPROVED](https://github.com/hbuas-se-2026fall/cs2412-team05-campus-overflow/pull/4#pullrequestreview-5722612748)；该记录不证明合并前已获批准 |
 | 文档同步 | ✅ | 章程、ADR、DDD、运维手册均入库 |
 | 无敏感信息 | ✅ | `.env` 被 `.gitignore` 忽略 |
 
-**结论：Sprint 0 达成 DoD，基线可发布（v0.1.0）。**
+**结论：Sprint 0 的基线导入与文档交付已有记录，`v0.1.0` 标签已建立；初始失败测试和缺少对应版本的 CI 证据，使本报告不能据此判定全部 DoD 已满足或证明该基线可发布。后续修复与补评不追溯改写当时状态。**
 
 ## 4. 遗留项 / 风险
 
 | # | 事项 | 计划 |
 |---|---|---|
-| R1 | PR 评审留痕缺失（仓库全部 PR 的 formal review / comments 为 0） | 后续 Sprint 补强 Code Review 记录（CODEOWNERS + review checklist 已就绪） |
+| R1 | Sprint 0 合并时的 PR 评审留痕不足 | 后续补评单独记录日期与链接；#4 的 2026-10-31 补评见第 3 节，不视为合并前评审 |
 | R2 | 真实会议纪要未入库（`docs/meetings/` 为空） | 收集团队站会/评审信息后补录 |
 | R3 | Milestone #6 下 Issue 均未关闭 | 按 V3 验收口径在最终交付前核对关闭 |
 | R4 | 初始框架 38 个失败测试待逐项转绿 | Sprint 1 起按 US 映射 TODO 完成 |
@@ -57,3 +57,9 @@
 - 合并 PR：#4
 - 里程碑：#6（Sprint 0）
 - 版本标签：v0.1.0
+
+## 6. 后续核对（2026-11-02）
+
+- 本节回应 [PR #50 的报告一致性评审](https://github.com/hbuas-se-2026fall/cs2412-team05-campus-overflow/pull/50#pullrequestreview-5713307179)，将初始失败基线与后续通过结果分开。38 个失败测试沿用既有初始框架记录，不是本次重新运行所得。
+- 后续 [PR #54](https://github.com/hbuas-se-2026fall/cs2412-team05-campus-overflow/pull/54) 的提交 `55ba55ba4197a074a986a397a8b7b2d79df3f9a4`，其 [Actions 运行 41172360163](https://github.com/hbuas-se-2026fall/cs2412-team05-campus-overflow/actions/runs/41172360163) 中前后端检查成功，镜像与部署步骤跳过。该结果仅对应这一后续提交，不证明 Sprint 0 初始基线测试通过，也不证明真实部署通过。
+- 其余当前流程状态与依赖见 [SM 过程状态记录 · 2026-11-02](../team/sm-process-status-2026-11-02.md)。

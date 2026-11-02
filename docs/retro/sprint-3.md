@@ -38,6 +38,8 @@
 | A5 | 配置部署环境并启用 `DEPLOY_ENABLED` | PO + 运维 | Sprint 4 结束 | deploy job 跑通，冒烟测试通过 |
 | A6 | Alertmanager 对接外部通知渠道 | Developer 后端（彭咸哲） | Sprint 4 结束 | 告警可送达 webhook / 邮件，有配置与截图证据 |
 
+> 2026-11-02 后续核对（SM）：A1 已有 5 份非作者 APPROVED，实际补评日期为 2026-10-31，详见[评审证据表](../team/sm-process-status-2026-11-02.md)。这是事后补评，不表示 Sprint 3 当时已先审后合；本次核对也不替代底部所列成员对真实参会情况的确认。
+
 ## 四、结论
 
 Sprint 3 达成 DoD，发布候选 v0.9.0（RC）就绪；功能、质量门禁与部署链路完成度高，但评审留痕、Issue 状态、Sonar 落地三项需在 Sprint 4 重点改进。

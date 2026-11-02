@@ -6,6 +6,8 @@
 > 版本标签：v1.0.0 @ `0810ef6`（2026-10-27 打标）→ 最终交付 `b093433`（2026-10-30）
 > 撰写：基于仓库真实提交、PR、Issue 与 Milestone 记录
 
+> 2026-11-02 后续核对：原 Sprint 时间与交付记录保留；评审留痕、成员材料和会议证据的当前状态见 [SM 过程状态](../team/sm-process-status-2026-11-02.md)。后补证据不反推当时已满足全部 DoD。
+
 ---
 
 ## 1. Sprint 目标
@@ -24,7 +26,7 @@
 | C3 | Lab8 最终交付文档（S4 验收清单/部署手册/发布说明/演示脚本） | PR #49（docs/final-deliverables → develop，2026-10-30 合并，`b093433`）→ `docs/final/final-delivery-checklist.md`、`deployment-runbook.md`、`release-notes.md`、`demo-script.md` | 完成 |
 | C4 | 质量门禁收尾 | Checkstyle（PR #2）、ESLint CI（#22）、JaCoCo（#24）全绿 | 完成 |
 | C5 | 可观测性与部署流水线就绪 | Prometheus 告警（#26）、GHCR + SSH 部署（#27）、CI 修复（#28） | 完成（deploy job 待 secrets 激活） |
-| C6 | 受保护分支与强制评审机制 | CODEOWNERS `* @pengyaoyang @Lin-Kaiyang2412`；直推尝试被拒（`a4d2ec0` + `8ad10fe`） | 完成 |
+| C6 | 受保护分支与强制评审机制 | CODEOWNERS 账号已由 PR #54 修正为 `* @pengyaoyang111 @Lin-Kaiyang2412`；直推尝试被拒（`a4d2ec0` + `8ad10fe`） | 配置已修正（2026-10-31） |
 
 ## 3. 评审结论（DoD 对照）
 
@@ -33,18 +35,18 @@
 | 功能实现符合验收标准 | ✅ | US-023~025 + US-003 全部实现；演示脚本覆盖注册登录→提问→回答→采纳→声誉主流程 |
 | 单元测试通过 | ✅ | CI 13 条 runs 全 success；JaCoCo 门禁 0.70 / 核心聚合 0.80 达标 |
 | CI 流水线全绿 | ✅ | backend/frontend/images job 均绿；deploy job 因 secrets 未配置为 skipped |
-| 代码评审通过 | ⚠️ | PR #49/#4 已合并，GitHub 正式 review 记录为 0（机制已就绪，留痕待补） |
+| 代码评审通过 | ⚠️ | PR #49/#4 于 2026-10-31 补齐非作者 APPROVED，见 [SM 证据表](../team/sm-process-status-2026-11-02.md)；属于事后补评，不能证明合并前已获批准 |
 | 文档同步 | ✅ | docs/final 四件套 + 验收清单 + 发布说明入库 |
 | 无敏感信息 | ✅ | `.env` 忽略；已知问题 `CO_FIELD_KEY` 默认值列入 release-notes K1 |
 
-**结论：Sprint 4 达成 DoD，v1.0.0 正式发布。**
+**结论：v1.0.0 标签及交付文档已入库；评审为事后补齐，实际部署仍待验证，不将上述记录视为全部 DoD 已满足的证据。**
 
 ## 4. 遗留项 / 风险
 
 | # | 事项 | 计划 |
 |---|---|---|
 | R1 | 测试服务器部署验证（`deploy` job 需 `DEPLOY_ENABLED=true` + secrets） | 答辩前完成真实部署并截图冒烟结果（T1） |
-| R2 | 全员贡献材料补齐（仅 2 名成员材料在库） | 其余成员按模板提交 PR（T2） |
+| R2 | 全员贡献材料与演练核对 | 2026-11-02 基线为 3 人角色承诺/技能矩阵、5 人章程信息、4 份代录 hello；逐人核对本人 PR 证据，见 SM 过程状态（T2） |
 | R3 | 会议纪要归档（`docs/meetings/` 为空） | 补录历次站会/评审纪要（T3） |
 | R4 | `CO_FIELD_KEY` 默认值整改 | 生产用 `deploy/.env` 覆盖（T4） |
 | R5 | 悬赏/越权边界验收 | QA 专用环境复测后关闭 Issue #11（T5） |
