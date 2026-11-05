@@ -1,52 +1,69 @@
 ### 冒烟脚本：认证与会话、课程（Sprint0 / T0-08）
-
-> 与后端真实接口保持一致（参考 `CampusOverflowFlowIT` 与 `AuthController` / `CourseController`）。
-> 约定：基础前缀 `/api/v1`；会话 Cookie `SESSION`（HttpOnly、SameSite=Lax）；CSRF 双提交——
-> 先 `GET /api/v1/auth/csrf` 取得 `XSRF-TOKEN` Cookie，后续写请求携带 `X-XSRF-TOKEN` 请求头。
+# 使用 VS Code 的 REST Client 扩展，启动后端后按编号逐条点击 Send Request。
+# 设置 rest-client.rememberCookiesForSubsequentRequests = true（默认值），
+# 让扩展自动保存并发送 XSRF-TOKEN 与 SESSION Cookie；全程保持 baseUrl 的主机名一致。
+# 执行 1 后，从响应 Set-Cookie: XSRF-TOKEN=... 复制等号后、分号前的原始值到 csrfToken。
+# JSON 中的 token 是 XOR 掩码值，不能填入 X-XSRF-TOKEN 请求头。
+# 若响应没有 Set-Cookie，执行命令 Rest Client: Clear cookies 后从 1 重新开始（会清空已保存会话）。
+# 如后续响应重新设置 XSRF-TOKEN，也要将 csrfToken 更新为新 Cookie 值；勿提交真实 Cookie。
+@baseUrl = http://localhost:8080
+@username = smokestudent01
+@password = Campus2026
+@courseId = 1
+@csrfToken = COPY_XSRF_TOKEN_COOKIE_VALUE_HERE
 
 ### 1) 获取 CSRF Token（同时写入 XSRF-TOKEN Cookie）
-GET /api/v1/auth/csrf
+# @name csrf
+GET {{baseUrl}}/api/v1/auth/csrf
 Accept: application/json
 
 ### 2) 注册学生账号（201 返回 {"id": <userId>}）
+# username 必须为 4–20 位字母或数字，昵称和邮箱由它派生，三者均须唯一。
+# 重跑时换一个未注册的 username，或保留账号并跳过本步；重复注册会返回 409。
 # @name register
-POST /api/v1/auth/register
+POST {{baseUrl}}/api/v1/auth/register
 Content-Type: application/json
-X-XSRF-TOKEN: {{xsrf-token}}
+X-XSRF-TOKEN: {{csrfToken}}
 
 {
-  "username": "smoke_student01",
-  "displayName": "冒烟学生01",
-  "email": "smoke_student01@example.com",
-  "password": "Campus2026",
+  "username": "{{username}}",
+  "displayName": "{{username}}",
+  "email": "{{username}}@example.com",
+  "password": "{{password}}",
   "college": "计算机学院",
   "className": "计科2401"
 }
 
 ### 3) 登录（200 返回 MeView，写入 SESSION Cookie）
+# 服务端保存登录会话；REST Client 自动携带 SESSION（HttpOnly、SameSite=Lax）用于后续请求。
 # @name login
-POST /api/v1/auth/login
+POST {{baseUrl}}/api/v1/auth/login
 Content-Type: application/json
+X-XSRF-TOKEN: {{csrfToken}}
 
 {
-  "username": "smoke_student01",
-  "password": "Campus2026"
+  "username": "{{username}}",
+  "password": "{{password}}"
 }
 
 ### 4) 当前登录用户
-GET /api/v1/auth/me
+# 应返回 200，且账号与步骤 3 一致；若返回 401，检查 SESSION 是否随请求发送。
+GET {{baseUrl}}/api/v1/auth/me
 Accept: application/json
 
 ### 5) 课程列表（登录时附带我的课程角色）
-GET /api/v1/courses
+# 从列表选一个已存在的课程，将其 id 填入 courseId；若列表为空，先请教师/管理员创建课程。
+GET {{baseUrl}}/api/v1/courses
 Accept: application/json
 
 ### 6) 我加入的课程
-GET /api/v1/courses/mine
+GET {{baseUrl}}/api/v1/courses/mine
 Accept: application/json
 
 ### 7) 申请加入课程（202 Accepted；需教师/助教审核）
+# 申请课程前确认 courseId 已设置，且当前学生尚未加入或提交待审核申请；重复申请返回 409。
+# 202 表示申请已提交，教师、课程助教或管理员审核通过后才成为正式成员。
 # @name joinCourse
-POST /api/v1/courses/1/join
-X-XSRF-TOKEN: {{xsrf-token}}
+POST {{baseUrl}}/api/v1/courses/{{courseId}}/join
+X-XSRF-TOKEN: {{csrfToken}}
 Accept: application/json

@@ -30,7 +30,7 @@
 |---|---|
 | 操作系统 | Linux x86_64（推荐 Ubuntu 22.04+）/ macOS / Windows（WSL2 或 Docker Desktop） |
 | Docker Engine | 24.x（`docker version` 校验） |
-| Docker Compose | v2 子命令形式（`docker compose version`） |
+| Docker Compose | v2 子命令形式；恢复步骤需支持 `up --wait --wait-timeout`（`docker compose up --help` 校验） |
 | 内存 | ≥ 6 GB（含监控栈），应用栈 ≥ 4 GB |
 | 磁盘 | ≥ 10 GB 可用 |
 | 端口占用 | `80`、`8080`、`3306`、`6379` 未被本机其他服务占用 |
@@ -102,26 +102,44 @@ MySQL 首次初始化建库约需 30–60 秒；backend 健康检查 `retries: 3
 
 | 变量 | 默认值 | 生产建议 | 说明 |
 |---|---|---|---|
-| `SPRING_PROFILES_ACTIVE` | `prod,demo` | `prod`（**去掉 `demo`**） | `demo` 会写入演示数据 |
+| `SPRING_PROFILES` | `prod,demo` | `prod`（**去掉 `demo`**） | Compose 读取此变量，传入容器的名称为 `SPRING_PROFILES_ACTIVE` |
 | `DB_PASSWORD` | `campus_dev_pwd` | 强密码 | 应用数据库账号密码 |
 | `MYSQL_ROOT_PASSWORD` | `root_dev_pwd` | 强密码 | 仅容器内使用 |
 | `CO_FIELD_KEY` | 仓库内默认值 | **必须重新生成** | 字段级加密密钥（`openssl rand -base64 32`） |
-| `COOKIE_SECURE` | `false` | 走 HTTPS 时 `true` | Cookie Secure 标志 |
+| `COOKIE_SECURE`（容器内） | Compose 中固定为 `false` | 走 HTTPS 时用下方 override 设为 `true` | 仅在 `.env` 写入同名变量不会覆盖此固定值 |
 | `GRAFANA_PASSWORD` | `admin` | 强密码 | 监控栈 |
 
-生产覆盖方式：在 `deploy/` 下创建 `.env`（已被 `.gitignore` 忽略，禁止提交），`docker compose` 自动读取。
+生产覆盖方式：在 `deploy/` 下创建 `.env`（已被 `.gitignore` 忽略，禁止提交），命令中显式用 `--env-file` 加载。从仓库根目录执行：
 
 ```bash
 cat > deploy/.env <<'EOF'
-SPRING_PROFILES_ACTIVE=prod
+SPRING_PROFILES=prod
 DB_PASSWORD=<强密码>
 MYSQL_ROOT_PASSWORD=<强密码>
 CO_FIELD_KEY=<openssl rand -base64 32 生成值>
-COOKIE_SECURE=true
 GRAFANA_PASSWORD=<强密码>
 EOF
 chmod 600 deploy/.env
 ```
+
+基础 Compose 将 `COOKIE_SECURE` 固定为 `false`。已配置 HTTPS 的生产环境另建 override；HTTP 演示环境使用基础配置即可：
+
+```bash
+cat > deploy/docker-compose.override.yml <<'EOF'
+services:
+  backend:
+    environment:
+      COOKIE_SECURE: "true"
+EOF
+
+# 显式合并基础配置与生产 override，并检查配置语法
+docker compose --env-file deploy/.env \
+  -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml config --quiet
+docker compose --env-file deploy/.env \
+  -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml up -d
+```
+
+合并后的 backend 环境应为 `SPRING_PROFILES_ACTIVE=prod`、`COOKIE_SECURE=true`。后续生产环境的 `pull`、`up`、`ps`、`exec` 等命令也应保留相同的 `--env-file` 和两个 `-f` 参数；第 5、7 节仅指定基础配置的命令用于本地演示环境。
 
 ---
 
@@ -149,12 +167,12 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost/api/v1/questions
 curl -s http://localhost:8080/actuator/prometheus | grep -c "^co_"
 
 # 7) Flyway 迁移已执行
-docker compose -f deploy/docker-compose.yml exec mysql \
-  mysql -ucampus -pcampus_dev_pwd campus_overflow \
-  -e "SELECT version, description FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 5;"
+docker compose -f deploy/docker-compose.yml exec -T mysql \
+  sh -c 'exec mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "SELECT version, description FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 5;"'
 ```
 
 > 冒烟脚本 `http/auth.http` 可进一步验证 CSRF → 注册 → 登录 → me → 课程加入 全链路。
+> 生产环境执行上述 `ps`、`exec` 时，继续使用第 4.4 节相同的 `--env-file` 和两个 `-f` 参数；数据库查询从容器环境读取账号密码，不依赖默认密码。
 
 ---
 
@@ -198,7 +216,7 @@ if: >-
 | 演练 / 暂停发布 | 改为 `false` | 立即停止自动部署，不影响其他 CI job |
 | 回滚后防止再次触发 | 临时置 `false` | 见第 7 节 |
 
-> 目标机需预装 Docker + Compose，并创建 `DEPLOY_PATH` 目录、放置 `deploy/docker-compose.yml` 与 `.env`（含生产密钥）。`GITHUB_TOKEN` 由 CI 自动注入，用于 `docker login ghcr.io`。
+> 目标机需预装 Docker + Compose，并创建 `DEPLOY_PATH` 目录。将 `deploy/docker-compose.yml` 放为该目录根下的 `docker-compose.yml`，生产环境另放第 4.4 节的 `docker-compose.override.yml` 与 `.env`，保留这些文件名。workflow 在该目录执行不带 `-f` 的 `docker compose`，会自动合并 override 并读取 `.env`。`GITHUB_TOKEN` 由 CI 自动注入，用于 `docker login ghcr.io`。
 
 ---
 
@@ -221,14 +239,25 @@ git revert <坏的提交SHA>          # 本地
 git push origin main              # 触发 CI 重新构建 + 部署
 ```
 
-### 7.2 回滚数据（仅演示环境重建）
+### 7.2 恢复数据（仅演示环境）
+
+恢复会覆盖演示数据库中的对应表，先确认备份可用（备份方法见 `docs/ops/运维手册.md` 5.3）。备份应保存在宿主机 `backup/`，以下在仓库根目录执行的 Bash 步骤保留备份文件和数据卷；不要先执行 `down -v`。如已在专用演示环境重建数据卷，也必须先启动 MySQL 并等待健康，再导入：
 
 ```bash
-# 危险操作：销毁数据卷，仅限重建演示环境
-docker compose -f deploy/docker-compose.yml down -v
-# 恢复备份（备份方法见 docs/ops/运维手册.md 5.3）
+set -e
+backup_file='backup/campus_overflow_<时间戳>.sql'
+test -s "$backup_file" || { echo "备份不存在或为空，停止恢复" >&2; exit 1; }
+
+# 暂停应用写入，启动数据库并等待健康；超时则停止，不继续导入
+docker compose -f deploy/docker-compose.yml stop backend web
+docker compose -f deploy/docker-compose.yml up -d --wait --wait-timeout 120 mysql
+
+# 从容器环境读取数据库账号密码，兼容已修改的密码；只读取宿主机备份
 docker compose -f deploy/docker-compose.yml exec -T mysql \
-  mysql -ucampus -pcampus_dev_pwd campus_overflow < backup/campus_overflow_<时间戳>.sql
+  sh -c 'exec mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' < "$backup_file"
+
+# 仅在导入成功后启动应用，随后执行第 5 节健康检查
+docker compose -f deploy/docker-compose.yml up -d
 ```
 
 ### 7.3 回滚后验证
