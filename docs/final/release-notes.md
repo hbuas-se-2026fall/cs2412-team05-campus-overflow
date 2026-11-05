@@ -81,7 +81,7 @@ CampusOverflow v1.0.0 是《软件工程》贯穿项目（Sprint 0–4，8 周�
 
 | # | 问题 | 影响 | 缓解/计划 |
 |---|---|---|---|
-| K1 | `deploy/docker-compose.yml` 中 `CO_FIELD_KEY` 带仓库内硬编码默认值 | 加密字段可被仓库读者解密 | 生产用 `deploy/.env` 覆盖；后续从 compose 移除默认值 |
+| K1 | 旧 `CO_FIELD_KEY` 曾提交到 Git 历史 | 旧密钥仍可从历史中恢复；既有密文依赖原密钥 | 当前配置已改为必填；部署负责人须确认实际密钥并在备份后安排轮换和数据迁移 |
 | K2 | `SPRING_PROFILES_ACTIVE` 默认含 `demo` | 正式环境会写入演示数据 | 生产部署显式置 `prod`（见 runbook 4.4） |
 | K3 | 单机 `docker compose` 部署，无多副本 | 无高可用，容器挂即不可用 | 课程场景可接受；建议补 `restart: unless-stopped` |
 | K4 | 告警规则已配置但未接外部通知渠道 | 告警仅在 UI 可见 | `alertmanager.yml` 预留 webhook，接群机器人即可 |
@@ -99,10 +99,11 @@ CampusOverflow v1.0.0 是《软件工程》贯穿项目（Sprint 0–4，8 周�
 ```bash
 git clone https://github.com/hbuas-se-2026fall/cs2412-team05-campus-overflow.git
 cd campus-overflow
+# 按部署手册第 4.2 节先配置 deploy/.env；不得覆盖已有数据库使用的密钥
 # 本地应用栈
-docker compose -f deploy/docker-compose.yml up -d --build
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --build
 # 含监控栈
-docker compose -f deploy/docker-compose.yml --profile observability up -d --build
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml --profile observability up -d --build
 ```
 
 详细步骤、环境要求与健康检查见 `docs/final/deployment-runbook.md`。
@@ -110,7 +111,7 @@ docker compose -f deploy/docker-compose.yml --profile observability up -d --buil
 ### 6.2 从 v0.x 升级到 v1.0.0
 
 1. 备份数据库（`mysqldump`，方法见 `docs/ops/运维手册.md` 5.3）
-2. 拉取新版本代码/镜像，`docker compose up -d --remove-orphans`
+2. 拉取新版本代码/镜像，`docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --remove-orphans`
 3. Flyway 自动执行增量迁移（迁移默认不可逆，升级前必须备份）
 4. 执行 runbook 第 5 节健康检查 7 项验证
 

@@ -31,13 +31,16 @@ jobs:
           cache: maven
 
       - name: Compile backend
-        run: mvn -B -f backend/pom.xml clean compile
+        working-directory: backend
+        run: mvn -B clean compile
 
       - name: Run backend unit and architecture tests
-        run: mvn -B -f backend/pom.xml test
+        working-directory: backend
+        run: mvn -B test
 
       - name: Verify backend, coverage and integration tests
-        run: mvn -B -f backend/pom.xml verify -Djacoco.skip=false
+        working-directory: backend
+        run: mvn -B verify -Djacoco.skip=false
 
       - name: Upload backend test reports
         if: always()

@@ -1,5 +1,5 @@
-# 一键启动完整环境：docker compose -f deploy/docker-compose.yml --profile observability up -d --build
-# 仅启动应用（不含监控）：docker compose -f deploy/docker-compose.yml up -d --build
+# 一键启动完整环境：docker compose --env-file deploy/.env -f deploy/docker-compose.yml --profile observability up -d --build
+# 仅启动应用（不含监控）：docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --build
 name: campus-overflow
 
 services:
@@ -50,7 +50,7 @@ services:
       DB_USER: campus
       DB_PASSWORD: ${DB_PASSWORD:-campus_dev_pwd}
       REDIS_HOST: redis
-      CO_FIELD_KEY: ${CO_FIELD_KEY:-GB7LwwDgcWpslCMsYtIkTbDrzER+IbjJwhtSu7LPz1I=}
+      CO_FIELD_KEY: ${CO_FIELD_KEY:?Set CO_FIELD_KEY in deploy/.env}
       COOKIE_SECURE: "false"                                   # 通过 HTTPS 发布时改为 true
       TZ: UTC
     depends_on:

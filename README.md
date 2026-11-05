@@ -3,18 +3,33 @@
 这是《软件工程》贯穿项目的**起始代码**。整体骨架、构建脚本、部署与 CI 已经就位，
 **四个限界上下文中的 Identity（身份与认证）是完整的参考实现**，其余三个上下文的核心业务留给你们按 Sprint 实现。
 
+以下终端示例使用 Bash；Windows 用户请在 WSL 或 Git Bash 中执行。
+
 现在克隆下来直接跑 `mvn test`，你会看到**大量失败的测试**——这不是环境坏了，这是你们这学期的需求说明书。
 
 ## 1. 五分钟跑起来
 
+后端所有运行环境都必须显式提供字段加密密钥。首次运行时生成一个 32 字节 Base64 值，并将其保存为 `deploy/.env` 中的 `CO_FIELD_KEY`；该文件已被 Git 忽略。已有数据库时请始终复用原密钥，不要每次启动都重新生成。
+
 ```bash
+# 仅在全新本地数据库首次配置时生成密钥；已有文件或数据库先核对并复用原密钥
+mkdir -p deploy
+if [ ! -f deploy/.env ]; then
+  umask 077
+  printf 'CO_FIELD_KEY=%s\n' "$(openssl rand -base64 32)" > deploy/.env
+else
+  echo 'deploy/.env already exists; verify and keep its current key'
+fi
+chmod 600 deploy/.env
+
 # 1) 起中间件（需要 Docker）
-docker compose -f deploy/docker-compose.yml up -d mysql redis
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d mysql redis
 
 # 2) 编译并跑测试（第一次会红，这是预期的）
 cd backend && mvn clean test
 
 # 3) 启动后端（dev profile，不要加 demo，因为演示数据依赖尚未实现的业务代码）
+export CO_FIELD_KEY="$(sed -n 's/^CO_FIELD_KEY=//p' ../deploy/.env)"
 mvn spring-boot:run -pl co-bootstrap -Dspring-boot.run.profiles=dev
 
 # 4) 启动前端

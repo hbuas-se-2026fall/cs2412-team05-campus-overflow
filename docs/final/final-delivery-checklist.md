@@ -62,7 +62,7 @@
 | 前端质量 | `typecheck` + `lint`（ESLint `--max-warnings=0`）+ `build` | CI `frontend` job | 完成 |
 | 可观测性 | Prometheus 指标 + 9 条告警规则 + Grafana 面板 | `deploy/prometheus.yml`、`alert-rules.yml`、`alertmanager.yml`、`grafana/`；commit `3de9475`（#26） | 完成 |
 | 事务与一致性 | 事务性发件箱（ADR-002）、声誉账本对账（FF-8） | ADR-002/004；告警 `OutboxBacklogHigh`、`ReputationLedgerMismatch` | 完成 |
-| 安全 | 敏感信息不入库 | `.gitignore` 忽略 `.env`；`deploy/.env` 规范见运维手册 4.2 | 部分（`CO_FIELD_KEY` 含默认值，见已知问题） |
+| 安全 | 敏感信息不入库 | `.gitignore` 忽略 `.env`；`CO_FIELD_KEY` 启动必填，见运维手册 4.2 | 部分（旧密钥仍在 Git 历史，现有部署的数据迁移/轮换待负责人确认） |
 
 ## 4. 过程与协作维度自检（评分 15%）
 
@@ -98,7 +98,7 @@
 | T1 | 测试服务器部署验证 | `deploy` job 需要仓库 secrets（`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`）与变量 `DEPLOY_ENABLED=true`、`DEPLOY_PATH` | 答辩前完成一次真实部署并截图冒烟结果 |
 | T2 | 全员贡献材料补齐 | 3 名成员的角色承诺/技能矩阵在库；hello 文件含组长代录 | 按章程逐人核对本人提交与评审证据，缺失者按模板补齐 |
 | T3 | 会议纪要归档 | `docs/meetings/` 为空 | 补录历次站会/评审纪要 |
-| T4 | `CO_FIELD_KEY` 默认值整改 | compose 内硬编码默认值可被解密 | 生产使用 `deploy/.env` 覆盖（运维手册 4.2） |
+| T4 | 旧 `CO_FIELD_KEY` 历史暴露处置 | 确认部署环境实际使用的密钥及数据库是否有依赖旧密钥的邮箱数据 | 由部署/数据库负责人备份并安排密文重加密、摘要重算和密钥轮换 |
 | T5 | 悬赏/越权边界验收 | 悬赏积分不足、到期结算、教师/学生越权接口未完全验证（见前端联调记录"待联合验收"） | 由 QA 在专用环境复测后关闭 Issue #11 |
 
 ---

@@ -66,7 +66,7 @@
 
 ```bash
 # 从仓库根目录执行，构建 backend + web 两个镜像（构建上下文为仓库根）
-docker compose -f deploy/docker-compose.yml build
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml build
 ```
 
 ### 3.3 构建产物校验
@@ -82,13 +82,13 @@ docker images | grep -E "campus-overflow-(backend|web)"
 ### 4.1 一键启动（应用栈）
 
 ```bash
-docker compose -f deploy/docker-compose.yml up -d --build
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --build
 ```
 
 ### 4.2 一键启动（应用栈 + 监控栈）
 
 ```bash
-docker compose -f deploy/docker-compose.yml --profile observability up -d --build
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml --profile observability up -d --build
 ```
 
 ### 4.3 启动顺序与依赖
@@ -105,22 +105,21 @@ MySQL 首次初始化建库约需 30–60 秒；backend 健康检查 `retries: 3
 | `SPRING_PROFILES` | `prod,demo` | `prod`（**去掉 `demo`**） | Compose 读取此变量，传入容器的名称为 `SPRING_PROFILES_ACTIVE` |
 | `DB_PASSWORD` | `campus_dev_pwd` | 强密码 | 应用数据库账号密码 |
 | `MYSQL_ROOT_PASSWORD` | `root_dev_pwd` | 强密码 | 仅容器内使用 |
-| `CO_FIELD_KEY` | 仓库内默认值 | **必须重新生成** | 字段级加密密钥（`openssl rand -base64 32`） |
+| `CO_FIELD_KEY` | 无，启动必填 | 必须安全保存并在既有数据迁移完成后轮换 | 字段级加密密钥（`openssl rand -base64 32`） |
 | `COOKIE_SECURE`（容器内） | Compose 中固定为 `false` | 走 HTTPS 时用下方 override 设为 `true` | 仅在 `.env` 写入同名变量不会覆盖此固定值 |
 | `GRAFANA_PASSWORD` | `admin` | 强密码 | 监控栈 |
 
-生产覆盖方式：在 `deploy/` 下创建 `.env`（已被 `.gitignore` 忽略，禁止提交），命令中显式用 `--env-file` 加载。从仓库根目录执行：
+生产配置保存在 `deploy/.env`（已被 `.gitignore` 忽略，禁止提交），Compose 命令必须显式用 `--env-file deploy/.env` 加载。从仓库根目录执行。若文件已存在，请用安全编辑器更新配置，不要用重定向覆盖；已有数据库须保留原 `CO_FIELD_KEY`，待备份和数据迁移完成后再轮换。
 
 ```bash
-cat > deploy/.env <<'EOF'
-SPRING_PROFILES=prod
-DB_PASSWORD=<强密码>
-MYSQL_ROOT_PASSWORD=<强密码>
-CO_FIELD_KEY=<openssl rand -base64 32 生成值>
-GRAFANA_PASSWORD=<强密码>
-EOF
+mkdir -p deploy
+touch deploy/.env
 chmod 600 deploy/.env
 ```
+
+首次配置新数据库时，使用安全编辑器将 `SPRING_PROFILES=prod`、数据库强密码、`CO_FIELD_KEY` 和 Grafana 密码写入该文件。密钥可用 `openssl rand -base64 32` 生成；不要将它写进命令历史或提交到仓库。
+
+已有数据库可能仍使用此前提交到 Git 历史的密钥。切换前由数据库/部署负责人确认线上实际密钥、备份数据，并安排邮箱密文重加密及邮箱摘要重算；直接换值会导致旧邮箱无法解密或查重。CI 部署不会注入此密钥：目标机 `DEPLOY_PATH/.env` 必须由部署负责人预先配置并保留，workflow 才能启动后端。
 
 基础 Compose 将 `COOKIE_SECURE` 固定为 `false`。已配置 HTTPS 的生产环境另建 override；HTTP 演示环境使用基础配置即可：
 
@@ -149,7 +148,7 @@ docker compose --env-file deploy/.env \
 
 ```bash
 # 1) 容器状态：全部 Up 且 healthy
-docker compose -f deploy/docker-compose.yml ps
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps
 
 # 2) 后端存活探针
 curl -s http://localhost:8080/actuator/health
@@ -167,7 +166,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost/api/v1/questions
 curl -s http://localhost:8080/actuator/prometheus | grep -c "^co_"
 
 # 7) Flyway 迁移已执行
-docker compose -f deploy/docker-compose.yml exec -T mysql \
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec -T mysql \
   sh -c 'exec mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "SELECT version, description FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 5;"'
 ```
 
@@ -249,15 +248,15 @@ backup_file='backup/campus_overflow_<时间戳>.sql'
 test -s "$backup_file" || { echo "备份不存在或为空，停止恢复" >&2; exit 1; }
 
 # 暂停应用写入，启动数据库并等待健康；超时则停止，不继续导入
-docker compose -f deploy/docker-compose.yml stop backend web
-docker compose -f deploy/docker-compose.yml up -d --wait --wait-timeout 120 mysql
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml stop backend web
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d --wait --wait-timeout 120 mysql
 
 # 从容器环境读取数据库账号密码，兼容已修改的密码；只读取宿主机备份
-docker compose -f deploy/docker-compose.yml exec -T mysql \
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec -T mysql \
   sh -c 'exec mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' < "$backup_file"
 
 # 仅在导入成功后启动应用，随后执行第 5 节健康检查
-docker compose -f deploy/docker-compose.yml up -d
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up -d
 ```
 
 ### 7.3 回滚后验证
@@ -283,8 +282,8 @@ docker compose -f deploy/docker-compose.yml up -d
 ## 9. 演示日快速清单（提前 60 分钟）
 
 1. 释放 3306/6379（关闭本机 MySQL/Redis）
-2. `docker compose -f deploy/docker-compose.yml --profile observability up -d --build`
-3. 全部容器 `healthy`（`docker compose ps`）
+2. `docker compose --env-file deploy/.env -f deploy/docker-compose.yml --profile observability up -d --build`
+3. 全部容器 `healthy`（`docker compose --env-file deploy/.env -f deploy/docker-compose.yml ps`）
 4. 第 5 节 7 项验证全绿
 5. MySQL 全量备份（`backup/` 下有非空 sql）
 6. 用演示账号走通主链路（见 `docs/final/demo-script.md`）

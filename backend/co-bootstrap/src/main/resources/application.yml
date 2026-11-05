@@ -86,8 +86,8 @@ logging:
 
 co:
   security:
-    # 邮箱等敏感字段的加密密钥（AES-256-GCM，Base64 的 32 字节）。生产环境必须用环境变量注入！
-    field-key: ${CO_FIELD_KEY:GB7LwwDgcWpslCMsYtIkTbDrzER+IbjJwhtSu7LPz1I=}
+    # 邮箱等敏感字段的加密密钥（AES-256-GCM，Base64 的 32 字节）；所有环境均须注入。
+    field-key: ${CO_FIELD_KEY}
     login:
       max-failures: 5
       window-seconds: 60

@@ -26,7 +26,7 @@ Mac 终端运行 Spring Boot；MySQL、Redis、Prometheus、Grafana 及验证用
 监控配置覆盖（仓库根目录执行）：
 
 ```bash
-docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.local-monitoring.yml --profile observability up -d --no-deps prometheus
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml -f deploy/docker-compose.local-monitoring.yml --profile observability up -d --no-deps prometheus
 ```
 
 验证前端镜像和 Nginx（独立 compose 项目，仅绑定本机 8088）：

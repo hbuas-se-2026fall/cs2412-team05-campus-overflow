@@ -40,8 +40,8 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <domain.coverage.minimum>0.70</domain.coverage.minimum>
         <!-- 静态检查（适应度函数 FF-9）：规则集见 backend/checkstyle.xml。
-             用 multiModuleProjectDirectory 定位：无论从仓库根执行 `mvn -f backend/pom.xml`
-             还是 `cd backend && mvn`，该属性都解析到 backend 目录，配置路径才不会错位。 -->
+             CI 与本地命令统一从 backend 目录执行；从仓库根使用 `mvn -f backend/pom.xml`
+             时，multiModuleProjectDirectory 会指向仓库根，无法定位此文件。 -->
         <checkstyle.version>3.4.0</checkstyle.version>
         <checkstyle.config.location>${maven.multiModuleProjectDirectory}/checkstyle.xml</checkstyle.config.location>
     </properties>

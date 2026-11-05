@@ -35,6 +35,7 @@ import org.testcontainers.utility.DockerImageName;
 @AutoConfigureMockMvc
 @Testcontainers
 @TestPropertySource(properties = {
+        "co.security.field-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.session.SessionAutoConfiguration",
         "co.outbox.poll-interval-ms=200",
         "spring.flyway.clean-disabled=false"

@@ -1,7 +1,7 @@
 # 覆盖率基线与质量门禁（Lab 7）
 
 > 维护人：组员D（Developer + QA）
-> 数据来源：`mvn -B -f backend/pom.xml verify -DskipITs` 生成的 JaCoCo 报告
+> 数据来源：在 `backend` 目录执行 `mvn -B verify -DskipITs` 生成的 JaCoCo 报告
 > 快照时间：2026-10-27（基于 PR #20 的实现状态）
 
 ## 1. 门禁规则
@@ -49,7 +49,8 @@ mvn -B verify -DskipITs -Djacoco.skip=false
 反向验证门禁是否真的生效（预期 BUILD FAILURE）：
 
 ```bash
-mvn -B -f backend/pom.xml verify -pl co-qa/co-qa-domain -am \
+cd backend
+mvn -B verify -pl co-qa/co-qa-domain -am \
     -DskipITs -Ddomain.coverage.minimum=0.99
 # [WARNING] Rule violated for bundle co-qa-domain: lines covered ratio is 0.82, but expected minimum is 0.99
 ```

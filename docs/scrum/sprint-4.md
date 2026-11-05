@@ -37,7 +37,7 @@
 | CI 流水线全绿 | ✅ | backend/frontend/images job 均绿；deploy job 因 secrets 未配置为 skipped |
 | 代码评审通过 | ⚠️ | PR #49/#4 于 2026-10-31 补齐非作者 APPROVED，见 [SM 证据表](../team/sm-process-status-2026-11-02.md)；属于事后补评，不能证明合并前已获批准 |
 | 文档同步 | ✅ | docs/final 四件套 + 验收清单 + 发布说明入库 |
-| 无敏感信息 | ✅ | `.env` 忽略；已知问题 `CO_FIELD_KEY` 默认值列入 release-notes K1 |
+| 无敏感信息 | ⚠️ | 当前配置不再含 `CO_FIELD_KEY` 默认值；旧密钥仍在 Git 历史，部署数据迁移/轮换待负责人确认（release-notes K1） |
 
 **结论：v1.0.0 标签及交付文档已入库；评审为事后补齐，实际部署仍待验证，不将上述记录视为全部 DoD 已满足的证据。**
 
@@ -48,7 +48,7 @@
 | R1 | 测试服务器部署验证（`deploy` job 需 `DEPLOY_ENABLED=true` + secrets） | 答辩前完成真实部署并截图冒烟结果（T1） |
 | R2 | 全员贡献材料与演练核对 | 2026-11-02 基线为 3 人角色承诺/技能矩阵、5 人章程信息、4 份代录 hello；逐人核对本人 PR 证据，见 SM 过程状态（T2） |
 | R3 | 会议纪要归档（`docs/meetings/` 为空） | 补录历次站会/评审纪要（T3） |
-| R4 | `CO_FIELD_KEY` 默认值整改 | 生产用 `deploy/.env` 覆盖（T4） |
+| R4 | 旧 `CO_FIELD_KEY` 历史暴露处置 | 确认部署环境密钥和现有数据；备份后由部署/数据库负责人安排迁移与轮换（T4） |
 | R5 | 悬赏/越权边界验收 | QA 专用环境复测后关闭 Issue #11（T5） |
 | R6 | Milestone #6~#10 下 Issue 均 open | 最终交付前核对关闭 |
 

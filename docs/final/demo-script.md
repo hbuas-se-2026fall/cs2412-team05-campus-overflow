@@ -147,7 +147,7 @@
 | 故障 | 兜底动作 |
 |---|---|
 | 前端白屏 | 直接打开 `http://<host>:8080/swagger-ui.html`，用 API 演示核心链路（CSRF → 注册 → 登录 → 提问 → 回答 → 采纳） |
-| 后端崩溃 | 展示 Grafana 历史曲线 + 本地截图，说明"可观测性正是为此服务"；随后 `docker compose restart backend` |
+| 后端崩溃 | 展示 Grafana 历史曲线 + 本地截图，说明"可观测性正是为此服务"；随后 `docker compose --env-file deploy/.env -f deploy/docker-compose.yml restart backend` |
 | 数据库损坏 | `down -v` 重建 + 恢复备份 + 重启（预计 3 分钟，需提前演练） |
 | 网络故障（会场 Wi-Fi） | 使用演示机热点；浏览器只留一个标签页 |
 
