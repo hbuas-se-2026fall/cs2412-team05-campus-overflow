@@ -13,6 +13,8 @@
 name: SonarQube 真实扫描
 
 on:
+  push:
+    branches: ["ci/sonarqube-real-scan"]
   workflow_dispatch:
   pull_request:
     paths:
@@ -248,7 +250,7 @@ PY
           if-no-files-found: warn
 
       - name: 回写证据到分支（仅 PR）
-        if: always() && github.event_name == 'pull_request'
+        if: always()
         continue-on-error: true
         run: |
           mkdir -p docs/verification
@@ -264,7 +266,7 @@ PY
             exit 0
           fi
           git commit -m "docs(verification): 归档 SonarQube 扫描证据（run ${{ github.run_id }}） [skip ci]"
-          git push origin "HEAD:${{ github.head_ref }}"
+          git push origin "HEAD:${{ github.head_ref || github.ref_name }}"
 
       - name: 清理
         if: always()
