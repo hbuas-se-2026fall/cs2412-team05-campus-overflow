@@ -273,3 +273,5 @@ PY
         run: |
           docker rm -f sonarqube sonar-db || true
           docker network rm sonar-net || true
+
+# 说明：`push` 触发器仅用于合并前先在本分支跑一次验证；合并后可移除。
