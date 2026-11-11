@@ -140,16 +140,7 @@ jobs:
           set +e
           # 上传完报告不等于指标算完，扫完立刻采集会拿到空 measures
           for i in $(seq 1 60); do
-            pending=$(curl -s -u "admin:$SONAR_ADMIN_PASSWORD" "$SONAR_URL/api/ce/component?component=$SONAR_PROJECT_KEY" | python3 -c "
-import json, sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    print(1); raise SystemExit
-q = len(d.get('queue') or [])
-cur = d.get('current') or {}
-print(q + (1 if cur.get('status') in ('PENDING', 'IN_PROGRESS') else 0))
-" 2>/dev/null)
+            pending=$(curl -s -u "admin:$SONAR_ADMIN_PASSWORD" "$SONAR_URL/api/ce/component?component=$SONAR_PROJECT_KEY" | python3 -c "import json,sys;d=json.load(sys.stdin);cur=d.get('current') or {};print(len(d.get('queue') or [])+(1 if cur.get('status') in ('PENDING','IN_PROGRESS') else 0))" 2>/dev/null || echo 1)
             echo "第 $i 次探测：待处理任务 $pending"
             if [ "$pending" = "0" ]; then
               exit 0
@@ -172,48 +163,48 @@ print(q + (1 if cur.get('status') in ('PENDING', 'IN_PROGRESS') else 0))
             "$SONAR_URL/api/measures/component?component=$SONAR_PROJECT_KEY&metricKeys=coverage,line_coverage,branch_coverage,bugs,vulnerabilities,code_smells,duplicated_lines_density,ncloc,sqale_index,reliability_rating,security_rating,sqale_rating" \
             -o evidence/06-measures.json
           python3 - <<'PY' | tee evidence/07-summary.md
-import json, os
-base = "evidence"
-lines = ["### SonarQube 扫描结果", ""]
-measures = {}
-try:
-    qg = json.load(open(os.path.join(base, "05-qualitygate.json"), encoding="utf-8"))
-    st = qg.get("projectStatus", {})
-    lines += ["| 项 | 值 |", "|---|---|", "| 服务端门禁状态 | **%s** |" % st.get("status", "未知")]
-except Exception as e:
-    lines.append("门禁读取失败：%s" % e)
-lines += ["", "| 指标 | 值 |", "|---|---|"]
-try:
-    m = json.load(open(os.path.join(base, "06-measures.json"), encoding="utf-8"))
-    for item in m.get("component", {}).get("measures", []):
-        measures[item["metric"]] = item.get("value", "-")
-        lines.append("| %s | %s |" % (item["metric"], item.get("value", "-")))
-except Exception as e:
-    lines.append("| 指标读取失败 | %s |" % e)
-lines += ["", "### 按 sonar-project.properties 声明的阈值核对", "",
-          "声明值：覆盖率 > 70%、Bugs = 0、Vulnerabilities = 0", "",
-          "| 条件 | 声明 | 实际 | 结论 |", "|---|---|---|---|"]
-def num(k):
-    try:
-        return float(measures.get(k))
-    except (TypeError, ValueError):
-        return None
-failed = []
-for k, label, thr in [("coverage", "> 70", 70.0), ("bugs", "= 0", 0.0), ("vulnerabilities", "= 0", 0.0)]:
-    a = num(k)
-    if a is None:
-        lines.append("| %s | %s | 未取到 | 无法判定 |" % (k, label))
-        failed.append(k)
-        continue
-    p = (a > thr) if k == "coverage" else (a == thr)
-    lines.append("| %s | %s | %s | %s |" % (k, label, measures.get(k), "通过" if p else "**不通过**"))
-    if not p:
-        failed.append(k)
-lines += ["", "**核对结论：%s**" % ("全部通过" if not failed else "不通过（%s）" % "、".join(failed))]
-lines += ["", "> 本工作流只做取证，不据此让 job 失败。覆盖率分母是全层代码（含 "
-              "infrastructure/interfaces），与 JaCoCo 只统计领域层的口径不同，"
-              "是否按此阈值卡门禁属团队决策。"]
-print("\n".join(lines))
+          import json, os
+          base = "evidence"
+          lines = ["### SonarQube 扫描结果", ""]
+          measures = {}
+          try:
+              qg = json.load(open(os.path.join(base, "05-qualitygate.json"), encoding="utf-8"))
+              st = qg.get("projectStatus", {})
+              lines += ["| 项 | 值 |", "|---|---|", "| 服务端门禁状态 | **%s** |" % st.get("status", "未知")]
+          except Exception as e:
+              lines.append("门禁读取失败：%s" % e)
+          lines += ["", "| 指标 | 值 |", "|---|---|"]
+          try:
+              m = json.load(open(os.path.join(base, "06-measures.json"), encoding="utf-8"))
+              for item in m.get("component", {}).get("measures", []):
+                  measures[item["metric"]] = item.get("value", "-")
+                  lines.append("| %s | %s |" % (item["metric"], item.get("value", "-")))
+          except Exception as e:
+              lines.append("| 指标读取失败 | %s |" % e)
+          lines += ["", "### 按 sonar-project.properties 声明的阈值核对", "",
+                    "声明值：覆盖率 > 70%、Bugs = 0、Vulnerabilities = 0", "",
+                    "| 条件 | 声明 | 实际 | 结论 |", "|---|---|---|---|"]
+          def num(k):
+              try:
+                  return float(measures.get(k))
+              except (TypeError, ValueError):
+                  return None
+          failed = []
+          for k, label, thr in [("coverage", "> 70", 70.0), ("bugs", "= 0", 0.0), ("vulnerabilities", "= 0", 0.0)]:
+              a = num(k)
+              if a is None:
+                  lines.append("| %s | %s | 未取到 | 无法判定 |" % (k, label))
+                  failed.append(k)
+                  continue
+              p = (a > thr) if k == "coverage" else (a == thr)
+              lines.append("| %s | %s | %s | %s |" % (k, label, measures.get(k), "通过" if p else "**不通过**"))
+              if not p:
+                  failed.append(k)
+          lines += ["", "**核对结论：%s**" % ("全部通过" if not failed else "不通过（%s）" % "、".join(failed))]
+          lines += ["", "> 本工作流只做取证，不据此让 job 失败。覆盖率分母是全层代码（含 "
+                        "infrastructure/interfaces），与 JaCoCo 只统计领域层的口径不同，"
+                        "是否按此阈值卡门禁属团队决策。"]
+          print("\n".join(lines))
 PY
           cat evidence/07-summary.md >> "$GITHUB_STEP_SUMMARY"
 
