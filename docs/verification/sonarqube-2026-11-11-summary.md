@@ -6,18 +6,18 @@
 
 | 指标 | 值 |
 |---|---|
+| ncloc | 8361 |
 | duplicated_lines_density | 0.1 |
+| sqale_index | 495 |
 | sqale_rating | 1.0 |
+| vulnerabilities | 0 |
 | branch_coverage | 47.8 |
 | security_rating | 1.0 |
-| vulnerabilities | 0 |
-| sqale_index | 495 |
 | line_coverage | 30.7 |
 | code_smells | 44 |
+| bugs | 2 |
 | coverage | 33.8 |
 | reliability_rating | 3.0 |
-| ncloc | 8361 |
-| bugs | 2 |
 
 ### 按 sonar-project.properties 声明的阈值核对
 
