@@ -205,7 +205,7 @@ jobs:
                         "infrastructure/interfaces），与 JaCoCo 只统计领域层的口径不同，"
                         "是否按此阈值卡门禁属团队决策。"]
           print("\n".join(lines))
-PY
+          PY
           cat evidence/07-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: 截图 Dashboard
