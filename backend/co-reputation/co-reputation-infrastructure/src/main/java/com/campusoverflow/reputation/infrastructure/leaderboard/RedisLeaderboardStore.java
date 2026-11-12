@@ -41,6 +41,7 @@ public class RedisLeaderboardStore implements LeaderboardStore {
             case MONTH -> "lb:month:" + AcademicTerm.monthKey(at);
             case TERM -> "lb:term:" + AcademicTerm.termKey(at);
             case ALL -> throw new IllegalArgumentException("总榜不由 Redis 提供");
+            default -> throw new IllegalStateException("未知排行榜周期: " + period);
         };
         Set<TypedTuple<String>> tuples = redis.opsForZSet().reverseRangeWithScores(key, 0, limit - 1L);
         if (tuples == null) {
