@@ -50,7 +50,9 @@ public class RedisQuestionListCache implements QuestionListCache {
     @Override
     public void put(Long courseId, PageRequest page, PageResult<QuestionSummaryView> value) {
         try {
-            Duration ttl = Duration.ofSeconds(60 + ThreadLocalRandom.current().nextInt(15)); // TTL 抖动防雪崩
+            // 60L 而非 60：Duration.ofSeconds 收 long，若两个操作数都是 int，
+            // 加法会先在 int 域完成再拓宽，SonarQube java:S2184 因此报「可能的整数溢出」。
+            Duration ttl = Duration.ofSeconds(60L + ThreadLocalRandom.current().nextInt(15)); // TTL 抖动防雪崩
             redis.opsForValue().set(key(courseId, page), mapper.writeValueAsString(value), ttl);
         } catch (Exception e) {
             log.debug("列表缓存写入失败: {}", e.getMessage());
