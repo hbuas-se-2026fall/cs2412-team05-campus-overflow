@@ -18,10 +18,12 @@ import com.campusoverflow.shared.domain.NotFoundException;
 import com.campusoverflow.shared.event.EventIds;
 import com.campusoverflow.shared.event.IntegrationEventPublisher;
 import com.campusoverflow.shared.security.Actor;
+import com.campusoverflow.shared.util.ConstraintViolations;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,7 +69,17 @@ public class BountyService {
                 .orElseThrow(() -> new NotFoundException("REP-4001", "声誉账户不存在"));
         sponsor.freezePoints(points);
         accounts.save(sponsor);
-        Bounty saved = bounties.save(bounty);
+        // 先查后写存在并发窗口：两个请求可能同时通过上面的检查。数据库唯一索引
+        // uk_bounty_question_open 是最终裁决，命中即翻译为业务冲突并整体回滚（冻结的积分不扣）。
+        Bounty saved;
+        try {
+            saved = bounties.save(bounty);
+        } catch (DataIntegrityViolationException ex) {
+            if (ConstraintViolations.messagesOf(ex).contains("uk_bounty_question_open")) {
+                throw new ConflictException("REP-2001", "该问题已有进行中的悬赏");
+            }
+            throw ex;
+        }
         events.publish(new BountyOpenedEvent(EventIds.next(), now, saved.id(), questionId, actor.userId(), points,
                 saved.expiresAt()));
         audit.record("BOUNTY_OPENED", actor.userId(), "BOUNTY", String.valueOf(saved.id()),
