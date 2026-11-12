@@ -14,7 +14,7 @@ name: SonarQube 真实扫描
 
 on:
   push:
-    branches: ["ci/sonarqube-real-scan"]
+    branches: ["ci/sonarqube-real-scan", "ci/sonar-issue-dump"]
   workflow_dispatch:
   pull_request:
     paths:
@@ -207,6 +207,39 @@ jobs:
           print("\n".join(lines))
           PY
           cat evidence/07-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 导出 BUG 与代码异味明细
+        if: always()
+        run: |
+          set +e
+          # measures 只给「bugs=2」这个数字，不给是哪两处。整改必须落到文件行号，
+          # 所以这里把 issue 明细全量拉下来，并直接打进 job 日志（artifact 不便离线查看）。
+          curl -s -u "admin:$SONAR_ADMIN_PASSWORD" \
+            "$SONAR_URL/api/issues/search?componentKeys=$SONAR_PROJECT_KEY&types=BUG&ps=100&additionalFields=rules" \
+            -o evidence/10-bugs.json
+          curl -s -u "admin:$SONAR_ADMIN_PASSWORD" \
+            "$SONAR_URL/api/issues/search?componentKeys=$SONAR_PROJECT_KEY&types=CODE_SMELL&ps=200" \
+            -o evidence/11-code-smells.json
+          python3 - <<'PY' | tee evidence/10-bugs.md
+          import json, os
+          def dump(path, title):
+              out = ["### %s" % title, ""]
+              try:
+                  d = json.load(open(path, encoding="utf-8"))
+              except Exception as e:
+                  out.append("读取失败：%s" % e)
+                  return out
+              out.append("总数：%s" % d.get("total"))
+              out.append("")
+              for i in d.get("issues", []):
+                  comp = i.get("component", "").split(":")[-1]
+                  out.append("- `%s:%s` **%s** %s" % (comp, i.get("line", "?"), i.get("rule"), i.get("message")))
+              return out
+          lines = dump("evidence/10-bugs.json", "BUG 明细")
+          lines += [""] + dump("evidence/11-code-smells.json", "代码异味明细（前 40 条）")[:42]
+          print("\n".join(lines))
+          PY
+          cat evidence/10-bugs.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: 截图 Dashboard
         if: always()
