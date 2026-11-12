@@ -57,6 +57,7 @@ abstract class AbstractJdbcSearchAdapter implements SearchPort {
             case NEWEST -> "d.created_at DESC";
             case ACTIVE -> "d.last_activity_at DESC";
             case HOT -> "d.score DESC, d.answer_count DESC, d.created_at DESC";
+            default -> throw new IllegalStateException("未知排序方式: " + q.sort());
         };
         Long total = jdbc.queryForObject("SELECT COUNT(*) FROM dis_search_doc d" + where, p, Long.class);
         p.addValue("limit", q.page().size()).addValue("offset", q.page().offset());
