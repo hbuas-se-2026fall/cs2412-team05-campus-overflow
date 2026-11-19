@@ -19,7 +19,7 @@
 | D4 | 可运行软件 | 演示数据与演示脚本 | `docs/final/demo-script.md`；后端 `demo` profile | 完成 |
 | D5 | 代码提交历史 | Sprint 版本标签链 v0.1.0 → v1.0.0 | `git tag`（v0.1.0/v0.2.0/v0.3.0/v0.9.0/v1.0.0） | 完成 |
 | D6 | 代码提交历史 | 完整 git 历史、规范提交信息 | `git log origin/develop` | 完成 |
-| D7 | 贡献者维度 | 全员按角色提交、贡献记录 | `docs/team/role-commitment-*.md`、`skill-matrix-*.md`、`hello-*.md` | 部分（3 人角色承诺/技能矩阵；5 人章程信息；本人演练须逐人核对，代录 hello 不作本人提交证据） |
+| D7 | 贡献者维度 | 全员按角色提交、贡献记录 | `docs/team/role-commitment-*.md`、`skill-matrix-*.md`、`hello-*.md` | 文件齐全（**5 人**，每类 5 份：`Borair`、`Lin-Kaiyang2412`、`lemonripe`、`pengyaoyang`、`zhugan`）；证据强度仍需逐人核对，见 §7 T2 |
 | D8 | PR 与 Code Review | PR 全流程、≥1 非作者 approve、CODEOWNERS 强制评审 | GitHub PR 列表、`.github/CODEOWNERS`、`docs/team/review-checklist.md` | 完成（机制就绪） |
 | D9 | Issue / 看板 / Milestone | 需求建模（PBI/Issue）、看板、Sprint 工件 | `docs/backlog/product-backlog-v1.md`、GitHub Issues #1–#32、看板 | 工件已建立；真实看板流转待核实 |
 | D10 | 分支策略 | develop 默认分支、GitHub Flow、main 受保护 | 仓库 Settings（默认分支 develop、分支保护）、`docs/团队章程v1.0.md` 第 4 节 | 完成 |
@@ -87,11 +87,35 @@
 
 > 勾选口径：只在有可核对证据时勾选。无法穷尽证明的，写明证据边界；已知反例的，如实披露而不是打勾。
 
-- [ ] **1. 未修改任何已有测试的断言** —— 待核对。复核方式：`git log -p -- '**/*Test.java'` 检查 `assert` 行是否有删改。目前已确认既有测试未被 `@Disabled`，但断言行尚未逐条核对，核对通过后再勾。
+- [x] **1. 未修改任何已有测试的断言** —— 已核对（2026-11-19）。复核命令：`git log -p --diff-filter=M -- '**/*Test.java'` + 对每条被删行做 `git log -S` 追溯。结论：**存在 4 处断言行改写，无一处放宽或删除**——见下方「第 1 条核对记录」。既有测试均未被 `@Disabled`。
 - [ ] **2. 未使用强推（force push）改写已推送历史** —— 未见记录。`main` / `develop` 自开启分支保护后不可强推，仓库历史未见被改写迹象（提交仍可按时间追溯）。无法穷尽证明，故记为「未见」而非「已验证」。
 - [ ] **3. 未使用 Admin 权限绕过 PR 保护直接合入 main** —— 不成立，须如实披露。`main` 历史中存在 `a4d2ec0`「test: attempt direct push to protected main」（2026-10-27 12:52），其后由 `8ad10fe` 撤销。这是一次直推 protected main 的越权测试，内容为空变更、当日回滚，但仍属于绕过保护。
-- [ ] **4. AI 助手参与的改动已在 PR 中声明，且成员能解释每一行** —— 未达成。S3 之后部分 PR（#67 / #69 / #71 / #72）使用了 AI 编程助手协助实现与文档起草，PR 描述中未逐条声明。补齐方式：在这些 PR 下补「AI 使用说明」，并由作者确认能解释每一行。
+- [ ] **4. AI 助手参与的改动已在 PR 中声明，且成员能解释每一行** —— 部分达成。已补齐：#82 / #83 / #84 / #85 / #86 的 PR 描述均新增「AI 使用说明」小节（声明范围、生产代码零改动、覆盖率数据来源）。仍缺：#67 / #69 / #71 / #72（作者 Lin-Kaiyang2412，需本人补声明并确认可解释每一行）。此项**在四人全部补完前不勾选**。
 - [x] **5. 演示数据与真实数据隔离；演示账号仅用于本地测试** —— 成立，有遗留风险。演示数据由 `demo` profile 控制，生产使用 `prod`；演示账号（教师 T2001 / 学生 2023001）仅存在于演示数据脚本。风险：`docker-compose.yml` 的 `SPRING_PROFILES_ACTIVE` 默认值含 `demo`（见 §7 K2），生产部署须显式覆盖。
+
+**第 1 条核对记录**（可复现，命令附后）：
+
+```bash
+git log --oneline --diff-filter=M -- '**/*Test.java' '*Test.java'
+# 502bbd6 refactor: unify backend error codes and close review debt (#3)
+# 9f87f60 fix(quality): 修掉 SonarQube 报出的 2 个 Bug (#79)
+# 另经 git log -S 追溯：b06e3e6 fix: address qa review feedback
+git log -p --all --diff-filter=M -- '**/*Test.java' | grep '^-.*assert'
+```
+
+逐条判定：
+
+| 提交 | 被改写的断言 | 性质 |
+|---|---|---|
+| `502bbd6` (#3) | `.isInstanceOf(BusinessRuleException.class)` → 追加 `.satisfies(...code()=="ID-1015")` | **加强**：原来只断言异常类型，现在连错误码一起断言 |
+| `502bbd6` (#3) | `.isInstanceOf(ForbiddenException.class)` → 追加 `.satisfies(...code()=="REP-3001")` | **加强** |
+| `502bbd6` (#3) | `assertThatThrownBy(() -> acc.freezePoints(901)).isInstanceOf(...)` → 拆行 + 追加 `code()=="REP-1002"` | **加强**（单行拆成三行，条件更严） |
+| `b06e3e6` | `assertThat(another.acceptedAnswerId()).isNull()` → `assertThat(q.acceptedAnswerId()).isNull()` | **加强**：原断言检查的是一个与失败操作无关的重复对象（恒为真），改后检查真正被测的 `q` 未被污染 |
+| `9f87f60` (#79) | 无删除，只新增 5 条邮箱边界与对抗性输入用例 | **纯新增** |
+
+`a4d2ec0`（直推 main 的越权测试）与 `8ad10fe`（其 revert）成对出现，净变更为零，已在第 3 条单独披露。
+
+结论：**没有为了「让测试变绿」而放宽或删除任何断言**。这是第 1 条可以勾选的依据；若验收方要求，上述命令与输出可现场复现。
 
 **第 3 条建议的表述**（不要勾成「全程未绕过」，也不要删掉这条）：
 
@@ -99,17 +123,17 @@
 
 主动披露并说明改进节点，比被验收方在 `git log` 里翻到更有利。
 
-**第 1 条**：若核对发现确有断言被改写，按指导书 9.3 处理（涉及 PBI 判未完成），不得隐瞒；确认无问题后再改为「已验证」并附核对输出。
+**第 1 条**：核对已完成，结论见上方「第 1 条核对记录」——4 处改写均为加强，无放宽或删除，故勾选。若验收方现场复核后认为某处判定有误，按指导书 9.3 处理（涉及 PBI 判未完成），不得隐瞒。
 
 ## 7. 待办与风险
 
 | # | 事项 | 说明 | 建议 |
 |---|---|---|---|
 | T1 | 测试服务器部署验证 | `deploy` job 需要仓库 secrets（`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`）与变量 `DEPLOY_ENABLED=true`、`DEPLOY_PATH` | 答辩前完成一次真实部署并截图冒烟结果 |
-| T2 | 全员贡献材料补齐 | 3 名成员的角色承诺/技能矩阵在库；hello 文件含组长代录 | 按章程逐人核对本人提交与评审证据，缺失者按模板补齐 |
+| T2 | 全员贡献材料补齐 | `role-commitment` / `skill-matrix` / `hello` 三类各 **5 份**已全在库（2026-11-19 核对）；但「本人在自己账号下提交过」这一层的证据强弱不一 | 逐人核对本人提交与评审证据：打开 `git log --author=<本人 GitHub 账号>` 与 PR 列表，确认每人至少有 1 次本人提交 + 1 次对他人 PR 的评审。组长代录的 hello 文件不能当作本人提交证据 |
 | T3 | 会议纪要归档 | `docs/meetings/` 为空 | 补录历次站会/评审纪要 |
 | T4 | `CO_FIELD_KEY` 默认值整改 | compose 内硬编码默认值可被解密 | 生产使用 `deploy/.env` 覆盖（运维手册 4.2） |
-| T5 | 悬赏/越权边界验收 | 悬赏积分不足、到期结算、教师/学生越权接口未完全验证（见前端联调记录"待联合验收"） | 由 QA 在专用环境复测后关闭 Issue #11 |
+| T5 | 悬赏/越权边界验收 | 规则层已有证据（`qa-t5-bounty-authz-2026-11-05.md` §1；#86 又补了到期不可结算、重复关闭被拒等 11 条）；**接口级越权仍无响应码证据**（本机无 Docker） | 由有 Docker 环境的成员起栈后补「三角色 × 5 边界接口」响应码表格，再关 Issue #11。答辩前若仍无环境，按「代码核对 + 领域层单测，未做接口级实测」表述 |
 
 ---
 *本清单随 Lab8 交付更新；状态变更时同步刷新对应行。*

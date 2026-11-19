@@ -44,8 +44,14 @@ mvn -B -pl co-reputation/co-reputation-domain,co-reputation/co-reputation-applic
 ## 3. 未覆盖（T5 不能关闭的原因）
 
 1. **接口级越权没有真实 HTTP 请求验证**。本机无 Docker / Podman 可用，WSL 被策略拦截，起不了 MySQL + Redis + 后端的联调环境，因此「学生 token 调教师接口返回 403」这类断言只有代码核对，没有响应码证据。
-2. **悬赏到期结算**未覆盖。当前测试覆盖「采纳触发结算」，但「到期未采纳时按规则处理」需要定时任务触发，属集成级场景。
+2. ~~**悬赏到期结算**未覆盖~~ → **已补领域层用例（2026-11-19，#86）**。`BountyValidationTest` 新增两条：
+   - `dueBountyCannotBeSettled()`：到期后即便被采纳也不允许结算，断言抛 `REP-` 业务异常；
+   - `closeMarksBountyExpiredAndCannotBeRepeated()`：`close` 把状态置为过期，重复关闭被拒。
+
+   仍未覆盖的是**定时任务触发层**（`@Scheduled` 扫到期悬赏并调用 `close`），属集成级；领域规则本身已有证据。
 3. 前端联调记录 `docs/verification/frontend-integration-2026-10-27.md` 中标记的「跨页仍待验证」项，与本条同属需要专用环境的验收。
+
+> 2026-11-19 复核：本文件 §1 原有的 9 条用例已随 #86 扩到 20 条，`co-reputation-domain` 行覆盖率 76.9% → 100%。新增用例覆盖了 §1 表格没列到的边界（积分区间、天数区间、缺失时间戳、非课管调用、主键重复回填），规则层的证据比 11-05 那次更完整。
 
 ## 4. 建议
 
