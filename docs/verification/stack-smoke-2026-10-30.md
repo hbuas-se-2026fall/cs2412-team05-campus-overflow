@@ -134,17 +134,38 @@ Config: ["sh","-c","exec java $JAVA_OPTS -jar app.jar"]  WorkingDir: /app  User:
 > 临时加的「构建并推送验证镜像」步骤与 `packages: write` 已在验证后删除，最终 PR diff 只保留 export 顺序的修复。
 > GHCR 上的 `ci-verify-20261101` 标签保留下来，作为可复现的验证镜像（当前账号 token 没有 `delete:packages` 权限，无法从命令行删除；需要清理时在仓库 Packages 页面手动删该版本即可）。
 
-## 怎么复现
+## 怎么复现（2026-11-12 更新）
+
+本仓库现在有 `.github/workflows/stack-smoke.yml`，**不再需要去个人仓库执行**：
+
+```
+Actions → 编排冒烟（docker compose 全栈） → Run workflow
+```
+
+最近一次运行的结果自动写入 [`stack-smoke-latest.md`](./stack-smoke-latest.md)，含容器状态、健康检查与监控栈探测结果。
+
+本地等价操作：
 
 ```bash
-# 手动触发（需要验 GHCR 成品镜像时填 image_tag，留空则现场构建）
-gh workflow run stack-smoke.yml
-
-# 本地等价操作
-docker compose -f deploy/docker-compose.yml up -d --wait --wait-timeout 300
+docker build -f deploy/backend.Dockerfile -t campus-overflow-backend:local .
+docker build -f deploy/frontend.Dockerfile -t campus-overflow-web:local .
+docker compose -f deploy/docker-compose.yml up -d --wait --wait-timeout 600
 curl -s http://localhost:8080/actuator/health
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost/
 docker compose -f deploy/docker-compose.yml down -v
 ```
 
 产物在运行的 artifact `stack-smoke-evidence` 里，保留 30 天。
+
+## 后续：本仓库可复现（2026-11-12）
+
+上面这份记录来自个人仓库，保留它是因为它记录了**问题是怎么被发现**的（三轮运行、空层定位、根因）。
+但它的短板是「可复现性在仓库外」——文档里给的复现命令在本仓库跑不通。
+
+现在同样的编排已能在本仓库一键复现，结果见 [`stack-smoke-latest.md`](./stack-smoke-latest.md)：
+
+- 四个容器（mysql / redis / backend / web）全部 `healthy`
+- `/actuator/health` 为 `UP`，首页与 `/api/v1/questions` 均返回 200
+- 额外拉起 `observability` profile 后，Prometheus / Grafana / Alertmanager 三件套均返回 200
+
+边界不变：这证明「编排能起来」，**不证明「线上可访问」**——后者仍需服务器与 deploy secrets（见 Issue #48）。

@@ -2,7 +2,7 @@
 
 > 维护人：组员D（Developer + QA）
 > 数据来源：`mvn -B -f backend/pom.xml verify -DskipITs` 生成的 JaCoCo 报告
-> 快照时间：2026-10-27（基于 PR #20 的实现状态）
+> 快照时间：**2026-11-12**（`develop` @ `e649a44` 之后，本 PR 新增测试后重测）
 
 ## 1. 门禁规则
 
@@ -21,17 +21,31 @@
 
 | 模块 | 覆盖率 | 覆盖行/总行 | 门禁 | 状态 |
 |---|---|---|---|---|
-| `co-qa-domain`（核心聚合） | **82.9%** | 203 / 245 | 80% | ✅ |
+| `co-qa-domain`（核心聚合） | **100.0%** | 245 / 245 | 80%（Lab 7 要求 90%） | ✅ |
+| `co-identity-domain` | **82.3%** | 135 / 164 | 70% | ✅ |
 | `co-discovery-domain` | **78.9%** | 75 / 95 | 70% | ✅ |
 | `co-reputation-domain` | **76.9%** | 140 / 182 | 70% | ✅ |
-| `co-identity-domain` | **75.7%** | 103 / 136 | 70% | ✅ |
-| `co-qa-application` | 36.7% | 121 / 330 | 暂不纳入 | ⚠️ S4 待补 |
-| `co-shared-kernel` | 10.0% | 6 / 60 | 暂不纳入 | ⚠️ 工具类为主 |
+| `co-qa-application` | **84.5%** | 279 / 330 | 暂不纳入（自定目标 70%） | ✅ 已达标 |
+| `co-identity-application` | 27.7% | 59 / 213 | 暂不纳入 | ⚠️ 待补 |
+| `co-identity-infrastructure` | 19.1% | 40 / 209 | 暂不纳入 | ⚠️ 待补 |
+| `co-reputation-application` | 12.1% | 25 / 207 | 暂不纳入 | ⚠️ 待补 |
+| `co-shared-kernel` | 9.2% | 6 / 65 | 暂不纳入 | ⚠️ 工具类为主 |
 | `co-bootstrap` | 0.0% | 0 / 257 | 暂不纳入 | ⚠️ 装配代码 |
 
-领域层合计：521 / 658 ≈ **79.2%**，已超过 Lab 7 的 70% 要求。
+领域层合计：595 / 686 ≈ **86.7%**（Lab 7 要求 70%，核心聚合 100% 已超 90% 要求）。
+全量（所有模块）：1004 / 1967 ≈ **51.0%**——分母含 `interfaces` / `infrastructure` / 装配代码，与 Sonar 的 33.8% 同一类口径，不作为门禁依据。
 
-## 3. 本轮补齐内容
+## 3. 历次补齐内容
+
+**2026-11-12（本轮）**
+
+- 新增 `QuestionCommandServiceTest`（5 条）：发布/编辑/删除的编排，编辑时标签只按差集调整，非作者与非课管被拒且不产生事件。
+- 新增 `QuestionQueryServiceTest`（7 条）：缓存命中/未命中分支、视图装配（作者缺失回退「已注销用户」）、采纳答案排序、我的投票装配、权限视图、`popularTags` 负值归零。
+- 新增 `CommentServiceTest`（6 条）：评论问题/回答时 `questionId` 的来源、二级回复父评论、三种目标缺失的错误码。
+- 新增 `QaApplicationTestFixtures`（标签、评论、渲染器、读模型、浏览计数、可存取缓存）。
+- 效果：`co-qa-application` 36.7% → **84.5%**；`QuestionCommandService` 与 `QuestionQueryService` 从 0 覆盖变为全覆盖；`co-qa-domain` 已达 100%。
+
+**2026-10-27（首轮）**
 
 - `ReputationValueObjectTest`：覆盖此前零覆盖的 `ReputationReason`（标签 + `isVote()` 判定）、`LedgerEntry.of` 与两条空值守卫、`BadgeAward`，把 `co-reputation-domain` 从 68.1% 抬到 76.9%。
 - 把 `domain.coverage.minimum` 从 `0`（空壳）改为 `0.70`，核心聚合单独 `0.80`。
@@ -54,8 +68,11 @@ mvn -B -f backend/pom.xml verify -pl co-qa/co-qa-domain -am \
 # [WARNING] Rule violated for bundle co-qa-domain: lines covered ratio is 0.82, but expected minimum is 0.99
 ```
 
-## 5. 后续待办（S4）
+## 5. 后续待办
 
-1. `co-qa-application` 36.7% → 优先补 `AnswerCommandService` / `VoteService` 的分支，目标 70%。
-2. `co-qa-domain` 82.9% → 90%（Lab 7 对核心聚合的要求），缺口主要在 `Question` 的编辑/删除分支。
-3. SonarQube 服务端质量门禁需在有实例后配置，并作为 CI 必经步骤（随 Issue #13 一起做）。
+1. ~~`co-qa-application` 36.7% → 70%~~：已完成，现 84.5%。
+2. ~~`co-qa-domain` 82.9% → 90%~~：已完成，现 100%。
+3. `co-reputation-application` 12.1%（207 行仅覆盖 25）：`BountyService` 已有 3 条用例，缺口在 `ReputationEventHandlers`、`LeaderboardService`、`ReconciliationService`。
+4. `co-identity-application` 27.7% / `co-identity-infrastructure` 19.1%：身份模块的应用层与仓储适配器基本没测。
+5. SonarQube 服务端质量门禁需在有实例后配置，并作为 CI 必经步骤——真实扫描已由 `.github/workflows/sonarqube.yml`（PR #69）落地，但**该工作流定位是取证**，`ci.yml` 里那个无 token 就 `exit 0` 的 job 仍是假绿灯，需要二选一收敛。
+6. Sonar 报的 2 个 Bugs 待定位修复（承诺书第 4 条要求 Bugs = 0）。
