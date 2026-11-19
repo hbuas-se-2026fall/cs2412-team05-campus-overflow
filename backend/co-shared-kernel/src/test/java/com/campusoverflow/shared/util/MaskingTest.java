@@ -16,4 +16,16 @@ class MaskingTest {
     void masksEmailLocalPart() {
         assertThat(Masking.email("alice@campus.edu")).isEqualTo("a***@campus.edu");
     }
+
+    @Test
+    void returnsFullMaskForNullOrTooShortAccount() {
+        assertThat(Masking.account(null)).isEqualTo("****");
+        assertThat(Masking.account("123456")).isEqualTo("****");
+    }
+
+    @Test
+    void returnsGenericMaskWhenEmailIsMissingOrMalformed() {
+        assertThat(Masking.email(null)).isEqualTo("***");
+        assertThat(Masking.email("not-an-email")).isEqualTo("***");
+    }
 }
