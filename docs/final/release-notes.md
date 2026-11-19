@@ -1,4 +1,4 @@
-# CampusOverflow v1.0.0 发布说明（Release Notes）
+# CampusOverflow 发布说明（Release Notes）
 
 > 版本：v1.0.0（2026-10-30，Lab8 / Sprint 4 最终交付）
 > 项目仓库：https://github.com/hbuas-se-2026fall/cs2412-team05-campus-overflow
@@ -7,7 +7,42 @@
 
 ---
 
-## 1. 版本摘要
+## 
+## v1.0.1（2026-11-19）· 补丁版
+
+> v1.0.0 已于 2026-10-30 发布并保留不动。v1.0.1 是其后两周的质量与交付修复，**不改变任何业务行为**。
+> 不打 v1.0.0 的重标签：已发布的引用不动，符合「不重写已推送历史」的约定。
+
+### 修复
+
+| 问题 | 影响 | 修复 |
+| --- | --- | --- |
+| 后端镜像里没有 jar | `deploy/backend.Dockerfile` 的 `COPY` 用 `co-bootstrap-*.jar`，而实际产物是 `campus-overflow.jar`；BuildKit 对空 glob 不报错，构建「成功」但容器启动即 `Unable to access jarfile` | 改为确定文件名 + 在 build/runtime 两阶段加 `test -s` 断言（#67） |
+| 两个 SonarQube Bug | ① `User` 邮箱正则嵌套量词（`java:S5998`，可被构造输入触发 ReDoS）；② `RedisQuestionListCache` 的 `60 + nextInt(15)` 整数溢出（`java:S2184`） | 正则拆成语义等价的两段并补对抗输入时序断言；常量改 `60L`（#79） |
+| 悬赏并发可重复发布 | 应用层「先查后写」存在窗口，两个请求可同时通过检查 | 恢复数据库唯一约束 `uk_bounty_question_open`，冲突翻译为 `REP-2001`；迁移脚本先退款再关闭重复单（#76） |
+
+### 工程质量
+
+- **SonarQube 真实扫描落地**：在 runner 上现场起实例，扫完即销毁，不依赖外部账号（#69）。首次扫描 `coverage 33.8% / Bugs 2 / Smell 44`，可靠性 C。
+- **复扫归零**：修复后复扫 `coverage 40.0% / Bugs 0 / Smell 43`，可靠性评级 **C → A**（#87 记录）。
+- **领域层覆盖率补到 100%**：`co-qa-domain` / `co-identity-domain` / `co-discovery-domain` / `co-reputation-domain` / `co-shared-kernel` 全部 100%（#83~#86、#77、#80、#82）。
+- **编排冒烟搬进本仓库**：`stack-smoke.yml` 在 runner 上真起四容器 + 监控三件套，证据自动回写 `docs/verification/`（#75）。
+
+### 交付物
+
+- `docs/adr/ADR-002-package-structure.md`：包结构与模块分层决策（指导书 Lab 4 指定）（#72）。
+- `docs/ops/部署配置清单.md`：4 vars / 3 secrets 清单、一键配置命令、验收 5 步、6 类故障排查（#78）。
+- `docs/final/final-delivery-checklist.md` §6 学术红线自查改为可核对写法（#73）。
+- `docs/requirements/interviews/`：访谈提纲与记录模板（#74）。
+- `docs/team/coverage-baseline.md` 按实测刷新（#88）。
+
+### 已知未变
+
+- **覆盖率口径**：全层 40.0% 仍低于 `sonar-project.properties` 声明的 `> 70`；领域层 100%。这是口径问题，处理方式见 `docs/verification/sonarqube-2026-11-11.md` §5。
+- **部署**：`deploy` job 仍未执行过（缺服务器与 secrets），`stack-smoke` 证明的是「编排可运行」而非「已上线」。
+
+---
+1. 版本摘要
 
 CampusOverflow v1.0.0 是《软件工程》贯穿项目（Sprint 0–4，8 周）的**最终发布版本**。系统覆盖四个限界上下文（Identity / Q&A / Reputation / Discovery），实现了从注册登录、提问回答、投票评论、采纳结题到声誉结算、中文全文检索、站内通知、排行榜与悬赏的完整问答社区主链路，并通过 Docker Compose 一键部署与 GitHub Actions 全自动 CI/CD 交付。
 
