@@ -5,6 +5,35 @@
 > 机器可读的指标汇总：[`sonarqube-2026-11-11-summary.md`](./sonarqube-2026-11-11-summary.md)
 > 运行记录：Actions run [42984219266](https://github.com/hbuas-se-2026fall/cs2412-team05-campus-overflow/actions/runs/42984219266)
 
+## 0. 复扫结果（2026-11-19）：Bugs 已清零
+
+首次扫描报出 2 个 Bug，#79 定位修复后复扫确认归零。
+
+| 指标 | 11-11 首次 | 11-19 复扫 | 变化 |
+| --- | --- | --- | --- |
+| **Bugs** | **2** | **0** | ✅ |
+| 可靠性评级 | C | **A** | ✅ |
+| 覆盖率（全层） | 33.8% | **40.0%** | +6.2 |
+| Code Smells | 44 | 43 | −1 |
+| 技术债（分钟） | 495 | 485 | −10 |
+
+运行：[run 44429597751](https://github.com/hbuas-se-2026fall/cs2412-team05-campus-overflow/actions/runs/44429597751)（7m15s，success）
+
+### 那 2 个 Bug
+
+| 规则 | 位置 | 性质 | 修法（#79） |
+| --- | --- | --- | --- |
+| `java:S5998` | `User.EMAIL` 正则 | `(\.[\w-]+)+` 量词套量词，可触发指数级回溯（ReDoS） | 拆成语义等价的两段匹配，并补「对抗输入 < 1 秒」回归断言 |
+| `java:S2184` | `RedisQuestionListCache` 的 `60 + nextInt(15)` | int 域相加可能溢出 | 改 `60L` |
+
+> **过程教训**：最初按个人仓库的旧结论误判为「switch 缺 default」（PR #71），回到本次扫描明细后才发现方向错误。
+> 二级结论（「扫描器报了什么」）必须回到一级证据（当次扫描的规则号 + 文件 + 行）再下判断。#71 已关闭。
+
+### 仍未达标
+
+覆盖率 40.0% 仍低于声明的 `> 70`。这是**口径问题**而非质量问题：分母含 `infrastructure` / `interfaces`，
+团队实际把关的是 JaCoCo 领域层口径（86.7%）。处理方式见 §4.2 与 §5。
+
 ## 1. 为什么会有这份记录
 
 `ci.yml` 里的 `sonar` job 在 `SONAR_TOKEN` / `SONAR_HOST_URL` 未配置时执行 `exit 0`
