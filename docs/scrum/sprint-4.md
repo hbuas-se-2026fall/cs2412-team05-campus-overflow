@@ -3,7 +3,7 @@
 > 项目：CampusOverflow（校园问答平台）
 > 周期：2026-10-28 ～ 2026-10-30（V3 指导书 Lab5 ~ Lab8 / Sprint 4）
 > 里程碑：Milestone #10（Sprint 4 - 增强与收尾 US-023 ~ US-025，含可选 US-003）
-> 版本标签：v1.0.0 @ `0810ef6`（2026-10-27 打标）→ 最终交付 `b093433`（2026-10-30）
+> 版本标签：v1.0.0 @ `026f2e5`（2026-10-30 打标）→ 最终交付 `b093433`（2026-10-30）
 > 撰写：基于仓库真实提交、PR、Issue 与 Milestone 记录
 
 > 2026-11-02 后续核对：原 Sprint 时间与交付记录保留；评审留痕、成员材料和会议证据的当前状态见 [SM 过程状态](../team/sm-process-status-2026-11-02.md)。后补证据不反推当时已满足全部 DoD。
@@ -21,7 +21,7 @@
 
 | # | 事项 | 证据（提交 / PR / 文件） | 状态 |
 |---|---|---|---|
-| C1 | CODEOWNERS 发布基线 + v1.0.0 标签 | `6d6337a`（2026-10-27）；标签 `v1.0.0` @ `0810ef6` | 完成 |
+| C1 | CODEOWNERS 发布基线 + v1.0.0 标签 | `6d6337a`（2026-10-27）；标签 `v1.0.0` @ `026f2e5` | 完成 |
 | C2 | Lab1/S0 交付物补齐（架构笔记/DDD 事件风暴/冒烟脚本/门禁 ADR/模板） | PR #4（docs/lab1-s0-deliverables → develop，2026-10-28 合并，`a0fe901`） | 完成 |
 | C3 | Lab8 最终交付文档（S4 验收清单/部署手册/发布说明/演示脚本） | PR #49（docs/final-deliverables → develop，2026-10-30 合并，`b093433`）→ `docs/final/final-delivery-checklist.md`、`deployment-runbook.md`、`release-notes.md`、`demo-script.md` | 完成 |
 | C4 | 质量门禁收尾 | Checkstyle（PR #2）、ESLint CI（#22）、JaCoCo（#24）全绿 | 完成 |
