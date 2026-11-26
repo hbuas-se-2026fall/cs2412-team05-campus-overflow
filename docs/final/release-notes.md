@@ -50,8 +50,8 @@ CampusOverflow v1.0.0 是《软件工程》贯穿项目（Sprint 0–4，8 周�
 
 | 项 | 值 |
 |---|---|
-| 当前基线 | `develop` @ `a0fe901`（含 Lab1 文档补齐，PR #4） |
-| 发布标签 | `v1.0.0` @ `0810ef6`（CODEOWNERS 发布基线） |
+| 发布时基线 | `develop` @ `a0fe901`（含 Lab1 文档补齐，PR #4）；此后已多次推进，最新以仓库 `develop` 为准 |
+| 发布标签 | `v1.0.0` @ `026f2e5`（2026-10-30，final 文档同步提交 #51） |
 | 默认分支 | `develop`（受保护） |
 | 部署方式 | Docker Compose（本地）/ GitHub Actions `deploy` job（服务器，`DEPLOY_ENABLED` 控制） |
 
@@ -61,13 +61,14 @@ CampusOverflow v1.0.0 是《软件工程》贯穿项目（Sprint 0–4，8 周�
 
 | 标签 | 提交 | 日期 | 说明 |
 |---|---|---|---|
-| `v0.1.0` | `2cdfdf1` | 2026-10-22 | Sprint 0 基线：学生初始框架 + 团队章程/Backlog/架构文档就绪 |
+| `v0.1.0` | `587e692` | 2026-10-25 | Sprint 0 基线：学生初始框架 + 团队章程/Backlog/架构文档就绪 |
 | `v0.2.0` | `7a974d4` | 2026-10-27 | Sprint 1/2 增量：Q&A 回答与投票工作流实现 |
 | `v0.3.0` | `ca38d40` | 2026-10-27 | Sprint 2 合入（PR #20）：QA 核心链路 + 悬赏 + 前端增强 |
 | `v0.9.0` | `502bbd6` | 2026-10-27 | 发布候选：统一错误码（PR #3）、代码评审债务清理 |
-| `v1.0.0` | `0810ef6` | 2026-10-27 | 正式发布：CODEOWNERS 强制评审 + 发布基线 |
+| `v1.0.0` | `026f2e5` | 2026-10-30 | 正式发布：CODEOWNERS 强制评审 + final 文档同步（#51） |
 
-> 标签链均落在 `develop` 分支上。最终答辩如需在 `main` 重新确认发布标签，请在 main 上重新打标并推送（仓库已配置 CODEOWNERS 评审，需经 SM/PO approve）。
+> 5 个标签均落在 `develop` 与 `main` 的共同历史上（`git tag --contains <sha>` 可核），于 2026-10-28 统一推送并建 GitHub Release。
+> 上表提交号以 `git for-each-ref refs/tags --format='%(refname:short) %(objectname:short)'` 的输出为准——本表曾误记 `v0.1.0`/`v1.0.0` 的提交号，2026-11-26 按实际标签订正。
 
 ---
 
