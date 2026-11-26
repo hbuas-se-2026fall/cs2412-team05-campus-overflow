@@ -5,6 +5,8 @@
 > 维护人：林恺洋（PO / 仓库管理员）
 > 说明：本清单依据《CampusOverflow 实验指导书 V3》评分构成（Sprint 评审 40% + 最终答辩 25% + 工程质量 20% + 过程协作 15%）与最终交付物维度整理，状态与证据以本仓库 develop 分支（`a0fe901`）为准。正式提交前请对照指导书原文复核条款编号。
 
+> 2026-11-26 状态更新：访谈 3 份真实记录已入库（#90）；T3 的 4 份纪要已归档（#93/#95）；标签链按 `git for-each-ref` 实测订正（#91/#94）；覆盖率门禁口径决策见 ADR-011（#92）。D3/T1 部署与 #47 Grafana 仍缺真实服务器（secrets/variables 均为 0）；T5 接口级越权响应码证据仍缺 Docker 实测环境。
+>
 > 2026-11-02 过程项更新：下表中的成员材料、评审、看板与会议状态按 develop `c4647f2` 及 GitHub 正式评审重新核对，详见 [SM 过程状态](../team/sm-process-status-2026-11-02.md)；其他项目仍保留原交付快照，不能当作本日重新验证的结果。
 
 ---
@@ -24,7 +26,7 @@
 | D9 | Issue / 看板 / Milestone | 需求建模（PBI/Issue）、看板、Sprint 工件 | `docs/backlog/product-backlog-v1.md`、GitHub Issues #1–#32、看板 | 工件已建立；真实看板流转待核实 |
 | D10 | 分支策略 | develop 默认分支、GitHub Flow、main 受保护 | 仓库 Settings（默认分支 develop、分支保护）、`docs/团队章程v1.0.md` 第 4 节 | 完成 |
 | D11 | CI/CD 状态 | 流水线全绿（backend/frontend/images/deploy） | GitHub Actions 页、`.github/workflows/ci.yml` | 部分（backend/frontend/images 已配置；deploy 待服务器验证） |
-| D12 | Scrum 工件 | 章程、Backlog、Story Map、Gherkin 验收、会议纪要、ADR、DDD 文档、运维手册 | `docs/`（详见 2.2 节） | 部分（真实会议纪要尚待确认归档） |
+| D12 | Scrum 工件 | 章程、Backlog、Story Map、Gherkin 验收、会议纪要、ADR、DDD 文档、运维手册 | `docs/`（详见 2.2 节） | 部分（4 份会议纪要已归档（#93/#95），参会人逐人确认待补） |
 
 ## 2. 文档工件清单（`docs/` 目录）
 
@@ -131,7 +133,7 @@ git log -p --all --diff-filter=M -- '**/*Test.java' | grep '^-.*assert'
 |---|---|---|---|
 | T1 | 测试服务器部署验证 | `deploy` job 需要仓库 secrets（`DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`）与变量 `DEPLOY_ENABLED=true`、`DEPLOY_PATH` | 答辩前完成一次真实部署并截图冒烟结果 |
 | T2 | 全员贡献材料补齐 | `role-commitment` / `skill-matrix` / `hello` 三类各 **5 份**已全在库（2026-11-19 核对）；但「本人在自己账号下提交过」这一层的证据强弱不一 | 逐人核对本人提交与评审证据：打开 `git log --author=<本人 GitHub 账号>` 与 PR 列表，确认每人至少有 1 次本人提交 + 1 次对他人 PR 的评审。组长代录的 hello 文件不能当作本人提交证据 |
-| T3 | 会议纪要归档 | `docs/meetings/` 为空 | 补录历次站会/评审纪要 |
+| T3 | 会议纪要归档 | 4 份已归档（#93/#95，2026-11-26）：Sprint 1 计划会、Sprint 3 评审会、Sprint 3 回顾会、Sprint 4 计划会，均整理自 `docs/scrum/` 过程记录并保留参会人待确认标注 | 补参会人逐人确认记录（方式+日期）后将标注转为已确认 |
 | T4 | `CO_FIELD_KEY` 默认值整改 | compose 内硬编码默认值可被解密 | 生产使用 `deploy/.env` 覆盖（运维手册 4.2） |
 | T5 | 悬赏/越权边界验收 | 规则层已有证据（`qa-t5-bounty-authz-2026-11-05.md` §1；#86 又补了到期不可结算、重复关闭被拒等 11 条）；**接口级越权仍无响应码证据**（本机无 Docker） | 由有 Docker 环境的成员起栈后补「三角色 × 5 边界接口」响应码表格，再关 Issue #11。答辩前若仍无环境，按「代码核对 + 领域层单测，未做接口级实测」表述 |
 
