@@ -1,13 +1,12 @@
 # CampusOverflow 发布说明（Release Notes）
 
-> 版本：v1.0.0（2026-10-30，Lab8 / Sprint 4 最终交付）
+> 版本：v1.0.1（2026-11-19）· 含 v1.0.0（2026-10-30，Lab8 / Sprint 4 最终交付）首发说明
 > 项目仓库：https://github.com/hbuas-se-2026fall/cs2412-team05-campus-overflow
 > 文档版本：`docs/final/release-notes.md`
 > 本说明面向最终答辩评审、部署运维与后续维护人员。
 
 ---
 
-## 
 ## v1.0.1（2026-11-19）· 补丁版
 
 > v1.0.0 已于 2026-10-30 发布并保留不动。v1.0.1 是其后两周的质量与交付修复，**不改变任何业务行为**。
@@ -42,7 +41,10 @@
 - **部署**：`deploy` job 仍未执行过（缺服务器与 secrets），`stack-smoke` 证明的是「编排可运行」而非「已上线」。
 
 ---
-1. 版本摘要
+
+## v1.0.0（2026-10-30）· 首发版
+
+### 1. 版本摘要
 
 CampusOverflow v1.0.0 是《软件工程》贯穿项目（Sprint 0–4，8 周）的**最终发布版本**。系统覆盖四个限界上下文（Identity / Q&A / Reputation / Discovery），实现了从注册登录、提问回答、投票评论、采纳结题到声誉结算、中文全文检索、站内通知、排行榜与悬赏的完整问答社区主链路，并通过 Docker Compose 一键部署与 GitHub Actions 全自动 CI/CD 交付。
 
@@ -55,7 +57,7 @@ CampusOverflow v1.0.0 是《软件工程》贯穿项目（Sprint 0–4，8 周�
 
 ---
 
-## 2. 版本标签链
+### 2. 版本标签链
 
 | 标签 | 提交 | 日期 | 说明 |
 |---|---|---|---|
@@ -69,26 +71,26 @@ CampusOverflow v1.0.0 是《软件工程》贯穿项目（Sprint 0–4，8 周�
 
 ---
 
-## 3. 变更摘要（按 Sprint）
+### 3. 变更摘要（按 Sprint）
 
-### Sprint 0（基线与环境）
+#### Sprint 0（基线与环境）
 - 导入学生初始框架（27 个 Maven 模块、107 个 TODO、38 个失败测试作为需求说明书）
 - 团队章程 v1.0、产品 Backlog v1（25 条 US）、Story Map、Gherkin 验收场景（8 个 feature 文件）
 - ADR 001–009 架构决策记录；DDD 上下文地图/领域模型/通用语言
 
-### Sprint 1（Q&A 核心）
+#### Sprint 1（Q&A 核心）
 - US-004~012：提问（标题 10–150 字符、Markdown 正文、1–5 标签）、列表浏览与筛选、详情与回答、采纳（每题一次不可更改）、投票（+1/−1 可改投）、评论、热门标签、`QaQueryApi` 只读查询（OHS/PL）
 - 悬赏流程（OPEN→AWARDED/EXPIRED）与前端悬赏弹窗
 
-### Sprint 2（Reputation 声誉）
+#### Sprint 2（Reputation 声誉）
 - US-013~018：声誉自动结算（采纳 +15、被赞 +10、被踩 −2、每日上限 200）、徽章、排行榜、声誉档案与流水、管理员对账（FF-8：账户余额=流水之和）
 - 声誉只追加账本 + 对账机制（ADR-004）；事务性发件箱（ADR-002）保障跨上下文事件一致
 
-### Sprint 3（Discovery 发现）
+#### Sprint 3（Discovery 发现）
 - US-019~022：中文全文检索（MySQL ngram，`ngram-token-size=2`，ADR-005）、相关问题推荐、站内通知与通知中心（已读管理）
 - 前端全链路联调（注册/提问/回答/采纳/通知/搜索/投票/评论/悬赏分页）
 
-### Sprint 4（打磨与发布）
+#### Sprint 4（打磨与发布）
 - 工程质量：JaCoCo 覆盖率门禁（0.70 / 核心聚合 0.80，PR #24）、Checkstyle（PR #2）、ESLint `--max-warnings=0`（PR #22）、Testcontainers 端到端测试为 CI 硬门禁
 - 可观测性：Prometheus 指标、9 条告警规则、Alertmanager、Grafana 面板（PR #26）
 - CI/CD：镜像推送 GHCR + SSH 自动部署 + 部署后冒烟测试（PR #27）、堆叠 PR 全 base 触发修复（PR #28）
@@ -97,7 +99,7 @@ CampusOverflow v1.0.0 是《软件工程》贯穿项目（Sprint 0–4，8 周�
 
 ---
 
-## 4. 新特性速览（对照 Backlog US）
+### 4. 新特性速览（对照 Backlog US）
 
 | 能力 | 用户故事 |
 |---|---|
@@ -112,7 +114,7 @@ CampusOverflow v1.0.0 是《软件工程》贯穿项目（Sprint 0–4，8 周�
 
 ---
 
-## 5. 已知问题与限制
+### 5. 已知问题与限制
 
 | # | 问题 | 影响 | 缓解/计划 |
 |---|---|---|---|
@@ -127,9 +129,9 @@ CampusOverflow v1.0.0 是《软件工程》贯穿项目（Sprint 0–4，8 周�
 
 ---
 
-## 6. 安装与升级
+### 6. 安装与升级
 
-### 6.1 全新安装
+#### 6.1 全新安装
 
 ```bash
 git clone https://github.com/hbuas-se-2026fall/cs2412-team05-campus-overflow.git
@@ -142,7 +144,7 @@ docker compose -f deploy/docker-compose.yml --profile observability up -d --buil
 
 详细步骤、环境要求与健康检查见 `docs/final/deployment-runbook.md`。
 
-### 6.2 从 v0.x 升级到 v1.0.0
+#### 6.2 从 v0.x 升级到 v1.0.0
 
 1. 备份数据库（`mysqldump`，方法见 `docs/ops/运维手册.md` 5.3）
 2. 拉取新版本代码/镜像，`docker compose up -d --remove-orphans`
@@ -151,7 +153,7 @@ docker compose -f deploy/docker-compose.yml --profile observability up -d --buil
 
 ---
 
-## 7. 相关链接
+### 7. 相关链接
 
 - 演示脚本：`docs/final/demo-script.md`
 - 验收清单：`docs/final/final-delivery-checklist.md`
