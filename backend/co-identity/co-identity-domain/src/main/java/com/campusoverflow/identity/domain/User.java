@@ -21,7 +21,10 @@ import java.util.regex.Pattern;
 public class User {
 
     private static final Pattern USERNAME = Pattern.compile("^[A-Za-z0-9]{4,20}$");
-    private static final Pattern EMAIL = Pattern.compile("^[\\w.+-]+@[\\w-]+(\\.[\\w-]+)+$");
+    /** 邮箱本地部分（@ 之前）：与原写法 {@code [\w.+-]+} 一致。 */
+    private static final Pattern EMAIL_LOCAL = Pattern.compile("[\\w.+-]+");
+    /** 域名中的单个标签（按 . 切分后的一段）：与原写法 {@code [\w-]+} 一致。 */
+    private static final Pattern EMAIL_LABEL = Pattern.compile("[\\w-]+");
 
     private Long id;
     private final String username;
@@ -146,10 +149,38 @@ public class User {
     }
 
     private static String checkEmail(String email) {
-        if (email == null || email.length() > 100 || !EMAIL.matcher(email).matches()) {
+        if (email == null || email.length() > 100 || !isEmail(email)) {
             throw new BusinessRuleException("ID-1003", "邮箱格式不正确");
         }
         return email.toLowerCase();
+    }
+
+    /**
+     * 邮箱格式校验：本地部分整体匹配，域名按 {@code .} 切分后逐段匹配。
+     *
+     * <p>原写法是一条 {@code ^[\w.+-]+@[\w-]+(\.[\w-]+)+$}，其中 {@code (\.[\w-]+)+}
+     * 属于「量词套量词」结构，SonarQube java:S5998 判定为随输入长度可能指数级回溯。
+     * 拆成两段后，两条正则都不再含嵌套量词，语义与原写法保持一致：
+     * 恰好一个 {@code @}、本地部分非空、域名至少两段且每段非空。
+     */
+    private static boolean isEmail(String email) {
+        int at = email.indexOf('@');
+        if (at <= 0 || at != email.lastIndexOf('@') || at == email.length() - 1) {
+            return false;
+        }
+        if (!EMAIL_LOCAL.matcher(email.substring(0, at)).matches()) {
+            return false;
+        }
+        String[] labels = email.substring(at + 1).split("\\.", -1);
+        if (labels.length < 2) {
+            return false;
+        }
+        for (String label : labels) {
+            if (!EMAIL_LABEL.matcher(label).matches()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static String optional(String value, int max) {

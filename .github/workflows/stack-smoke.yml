@@ -1,0 +1,216 @@
+# 编排冒烟：在 runner 上把 deploy/docker-compose.yml 完整跑一遍
+#
+# 为什么需要：团队没有可 SSH 的服务器，仓库变量 DEPLOY_ENABLED / DEPLOY_HOST 等一个都没配，
+# ci.yml 的 deploy job 从建仓至今一次没执行过。Lab 8 要的「编排能跑起来」因此没有任何证据。
+#
+# 这条工作流不部署、不给线上 URL —— 它回答的是另一个问题：**这套编排本身能不能起来**。
+# runner 自带 Docker，在它上面现场构建镜像 + docker compose up，得到与本地等价的结果，
+# 把「镜像可构建、依赖顺序正确、健康检查通过、前端可访问」变成可复现的证据。
+#
+# 与 #70 评审意见的对应：原先的编排验证记录来自个人仓库，复现命令在本仓库跑不通。
+# 把工作流搬进来之后，任何人点一次 Run workflow 就能重跑，证据不再依赖仓库外的东西。
+name: 编排冒烟（docker compose 全栈）
+
+on:
+  # 手动触发：需要出 Lab 8 证据时点一次
+  workflow_dispatch:
+  # 改动 deploy/ 最容易把容器栈弄坏，而这类改动单测覆盖不到，所以在 PR 上验证
+  pull_request:
+    paths:
+      - "deploy/**"
+      - ".github/workflows/stack-smoke.yml"
+  # 合并前先在本分支跑一次验证（合并后可删除）
+  push:
+    branches: ["ci/stack-smoke"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stack-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: 起全套容器并冒烟
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      # 与 compose 的 ${BACKEND_IMAGE:-campus-overflow-backend:local} 默认值一致，
+      # 因此不需要额外传参，compose 会直接用本地刚构建的镜像
+      BACKEND_IMAGE: campus-overflow-backend:local
+      WEB_IMAGE: campus-overflow-web:local
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 记录环境
+        run: |
+          mkdir -p evidence
+          {
+            echo "# 运行环境"
+            echo
+            echo "- runner: $RUNNER_OS / $RUNNER_ARCH"
+            echo "- 提交: $GITHUB_SHA"
+            echo "- 触发: $GITHUB_EVENT_NAME"
+            echo
+            echo '```'
+            docker version --format 'Docker {{.Server.Version}}'
+            docker compose version
+            java -version 2>&1 | head -1 || true
+            echo '```'
+          } | tee evidence/00-env.md
+
+      - name: 构建后端镜像
+        run: |
+          set -o pipefail
+          docker build -f deploy/backend.Dockerfile -t "$BACKEND_IMAGE" . 2>&1 | tail -25
+
+      - name: 构建前端镜像
+        run: |
+          set -o pipefail
+          docker build -f deploy/frontend.Dockerfile -t "$WEB_IMAGE" . 2>&1 | tail -25
+
+      - name: 校验镜像内容
+        run: |
+          # 先证明关键产物真的在镜像里，再谈能不能跑起来。
+          # 历史上出过 COPY --from 的空 glob 被 BuildKit 静默吞掉、镜像里没有 jar 的事故，
+          # 那种情况下构建照样 success，只有运行时才炸。
+          docker run --rm --entrypoint sh "$BACKEND_IMAGE" -c 'ls -l /app && test -s /app/app.jar' | tee evidence/01-image-backend.txt
+          docker run --rm --entrypoint sh "$WEB_IMAGE" -c 'ls -l /usr/share/nginx/html && test -s /usr/share/nginx/html/index.html' | tee evidence/01-image-web.txt
+          docker image ls --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}' > evidence/01-images.txt
+
+      - name: 启动编排
+        run: |
+          # --wait 会等到所有带 healthcheck 的服务变 healthy，任一不健康即失败；
+          # 不用 sleep 猜时间。pipefail 防止 | tee 把 compose 的失败退出码吃掉。
+          set -o pipefail
+          docker compose -f deploy/docker-compose.yml up -d --wait --wait-timeout 600 2>&1 | tee evidence/02-up.log
+
+      - name: 采集编排状态
+        if: always()
+        run: |
+          docker compose -f deploy/docker-compose.yml ps > evidence/03-ps.txt 2>&1 || true
+          docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' > evidence/04-docker-ps.txt 2>&1 || true
+          cat evidence/03-ps.txt
+
+      - name: 冒烟断言（health / 首页 / 接口）
+        run: |
+          set -o pipefail
+          echo "等待后端 readiness（最多 120s）"
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/actuator/health/readiness || true)
+            echo "  第 $i 次：$code"
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+
+          curl -s http://localhost:8080/actuator/health | tee evidence/05-health.json; echo
+          web=$(curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)
+          api=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/api/v1/questions || true)
+          { echo "web=$web"; echo "api=$api"; } | tee evidence/06-status.txt
+
+          if ! grep -q '"status":"UP"' evidence/05-health.json; then
+            echo "::error::后端 /actuator/health 不是 UP"
+            exit 1
+          fi
+          if [ "$web" != "200" ] || [ "$api" != "200" ]; then
+            echo "::error::首页或接口返回非 200（web=$web api=$api）"
+            exit 1
+          fi
+
+      - name: 生成流量（供监控采集）
+        continue-on-error: true
+        run: |
+          # 让 Prometheus 抓到的不只是 health 探测：制造一些真实请求
+          for i in $(seq 1 30); do
+            curl -s -o /dev/null http://localhost:8080/api/v1/questions || true
+            curl -s -o /dev/null "http://localhost:8080/api/v1/questions?page=1&size=20" || true
+            curl -s -o /dev/null http://localhost/ || true
+          done
+          echo "已发起 90 次请求"
+          curl -s http://localhost:8080/actuator/prometheus | head -40 > evidence/07-prometheus-sample.txt || true
+
+      - name: 校验监控栈（可选）
+        continue-on-error: true
+        run: |
+          # observability profile 默认不启动；这里额外拉起来，验证监控配置能加载
+          set -o pipefail
+          docker compose -f deploy/docker-compose.yml --profile observability up -d --wait --wait-timeout 300 2>&1 | tail -20
+          sleep 15
+          pm=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9090/-/ready || true)
+          gf=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/health || true)
+          am=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9093/-/ready || true)
+          { echo "prometheus_ready=$pm"; echo "grafana_health=$gf"; echo "alertmanager_ready=$am"; } | tee evidence/08-observability.txt
+          docker compose -f deploy/docker-compose.yml --profile observability ps > evidence/08-observability-ps.txt 2>&1 || true
+
+      - name: 收集日志
+        if: always()
+        run: |
+          for s in mysql redis backend web; do
+            docker compose -f deploy/docker-compose.yml logs --no-color --tail 120 "$s" > "evidence/09-log-$s.txt" 2>&1 || true
+          done
+          tail -40 evidence/09-log-backend.txt || true
+
+      - name: 上传证据
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stack-smoke-evidence
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: 回写证据到分支（仅 PR / 本分支）
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p docs/verification
+          {
+            echo "# 编排冒烟结果（自动采集）"
+            echo
+            echo "> 由 \`.github/workflows/stack-smoke.yml\` 生成，运行 [\`$GITHUB_RUN_ID\`](https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)。"
+            echo
+            echo "- 提交：\`$GITHUB_SHA\`"
+            echo "- 宿主镜像："
+            echo
+            echo '```'
+            cat evidence/01-images.txt 2>/dev/null || echo '（无）'
+            echo '```'
+            echo
+            echo "## 容器状态"
+            echo
+            echo '```'
+            cat evidence/03-ps.txt 2>/dev/null || echo '（无）'
+            echo '```'
+            echo
+            echo "## 健康检查"
+            echo
+            echo '```'
+            cat evidence/05-health.json 2>/dev/null || echo '（无）'
+            echo
+            cat evidence/06-status.txt 2>/dev/null || echo '（无）'
+            echo '```'
+            echo
+            echo "## 监控栈（observability profile）"
+            echo
+            echo '```'
+            cat evidence/08-observability.txt 2>/dev/null || echo '（未执行或失败）'
+            echo '```'
+          } > docs/verification/stack-smoke-latest.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/verification/stack-smoke-latest.md
+          if git diff --cached --quiet; then
+            echo "证据无变化，跳过提交"
+            exit 0
+          fi
+          git commit -m "docs(verification): 更新编排冒烟结果（run $GITHUB_RUN_ID） [skip ci]"
+          git push origin "HEAD:${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+
+      - name: 清理
+        if: always()
+        run: |
+          docker compose -f deploy/docker-compose.yml --profile observability down -v --remove-orphans || true
