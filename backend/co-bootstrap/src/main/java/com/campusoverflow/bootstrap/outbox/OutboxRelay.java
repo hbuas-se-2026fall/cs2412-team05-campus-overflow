@@ -15,7 +15,9 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -44,6 +46,10 @@ public class OutboxRelay {
     private final ApplicationEventPublisher bus;
     private final ObjectMapper mapper;
     private final Clock clock;
+    /**
+     * 应用是否已完全就绪：由 {@link ApplicationReadyEvent} 置位，早于它不轮询。
+     */
+    private volatile boolean ready;
     private final int batchSize;
     private final int maxAttempts;
     private final String instanceId = UUID.randomUUID().toString().substring(0, 8);
@@ -71,8 +77,26 @@ public class OutboxRelay {
         Gauge.builder("co_outbox_dead_letters", this, r -> r.count("attempts >= " + maxAttempts)).register(registry);
     }
 
+    /**
+     * 中继推迟到应用完全就绪之后再开始轮询。
+     *
+     * <p>demo profile 的 {@code DemoDataSeeder} 是 ApplicationRunner，启动期连续写入账号、问题、回答、投票、
+     * 认证、采纳、评论，每一步都往 {@code outbox_event} 插事件。它与中继的认领事务（{@code SELECT ... FOR UPDATE}
+     * 覆盖未投递区间）并发访问同一张表，在 MySQL 上会形成死锁并让应用启动直接失败——2026-11-26 的
+     * t5-authz-evidence 运行就是这样挂的：{@code DemoDataSeeder.run → AnswerCommandService.endorse →
+     * OutboxIntegrationEventPublisher.publish} 抛 {@code MySQLTransactionRollbackException: Deadlock found}，
+     * 容器退出码 1。初始化数据期间没有任何订阅者需要消费事件，因此把首次轮询推迟到就绪之后是安全的。
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        this.ready = true;
+    }
+
     @Scheduled(fixedDelayString = "${co.outbox.poll-interval-ms:500}")
     public void relay() {
+        if (!ready) {
+            return;
+        }
         List<Row> batch = claim();
         for (Row row : batch) {
             if (!dispatch(row)) {
