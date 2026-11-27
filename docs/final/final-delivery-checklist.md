@@ -5,7 +5,7 @@
 > 维护人：林恺洋（PO / 仓库管理员）
 > 说明：本清单依据《CampusOverflow 实验指导书 V3》评分构成（Sprint 评审 40% + 最终答辩 25% + 工程质量 20% + 过程协作 15%）与最终交付物维度整理，状态与证据以本仓库 develop 分支（`a0fe901`）为准。正式提交前请对照指导书原文复核条款编号。
 
-> 2026-11-26 状态更新：访谈 3 份真实记录已入库（#90）；T3 的 4 份纪要已归档（#93/#95）；标签链按 `git for-each-ref` 实测订正（#91/#94）；覆盖率门禁口径决策见 ADR-011（#92）。D3/T1 部署与 #47 Grafana 仍缺真实服务器（secrets/variables 均为 0）；T5 接口级越权响应码证据仍缺 Docker 实测环境。
+> 2026-11-26 状态更新：访谈 **4 份含受访者原话／回复**的记录已入库（A-01、C-01、U-01、T-01，外部 2 份 + 组内 2 份，见 #90/#97；L-01 因缺受访者原话暂不计入完整访谈数，事实更正见 #99），**任课教师／助教视角仍缺**（T-01 为学院辅导员，属学生工作视角）。T3 的 4 份纪要已归档（#93/#95），**参会人逐人确认仍待补**；标签链按 `git for-each-ref` 实测订正（#91/#94）；覆盖率门禁口径决策见 ADR-011（#92）。D3/T1 部署与 #47 Grafana 仍缺真实服务器（secrets/variables 均为 0）；T5 接口级越权响应码证据仍缺 Docker 实测环境。
 >
 > 2026-11-02 过程项更新：下表中的成员材料、评审、看板与会议状态按 develop `c4647f2` 及 GitHub 正式评审重新核对，详见 [SM 过程状态](../team/sm-process-status-2026-11-02.md)；其他项目仍保留原交付快照，不能当作本日重新验证的结果。
 
@@ -46,6 +46,7 @@
 | 架构 | `docs/notes/architecture.md`、`docs/adr/README.md` + ADR-001~010 | 完成 |
 | DDD | `docs/ddd/context-map.md`、`ubiquitous-language.md`、`domain-model.md`、`README.md` | 完成 |
 | 需求 | `docs/backlog/product-backlog-v1.md`、`docs/story-map/`、`docs/requirements/gherkin/us-*.feature`（8 个场景文件） | 完成 |
+| 访谈 | `docs/requirements/interviews/`：A-01（外部同学）、C-01 / U-01（组内前端，开发兼用户）、T-01（学院辅导员，学生工作视角）共 4 份含受访者原话或回复；L-01 缺受访者原话，标注为待核实、不计入 | 完成（≥3 份门槛已满足）；**任课教师／助教视角仍缺** |
 | 工程/过程 | `docs/团队章程v1.0.md`、`docs/team/ci-baseline-note.md`、`coverage-baseline.md`、`review-checklist.md`、`role-commitment-*.md`、`skill-matrix-*.md`、`sm-process-status-2026-10-27.md` | 完成 |
 | 接口 | `http/auth.http`（冒烟脚本）、`docs/postman/`（Postman Collection） | 完成 |
 | 运维 | `docs/ops/运维手册.md`（v1.0，覆盖部署/配置/监控/告警/故障/演示清单） | 完成 |
@@ -70,8 +71,8 @@
 
 | 项目 | 要求 | 现状 | 状态 |
 |---|---|---|---|
-| Sprint 评审 | 每 Sprint 末 PO 主导演示可运行增量 | 历次评审记录（会议纪要） | 部分（纪要建议补入 `docs/meetings/`） |
-| 每日站会 / 周会 | SM 主持，同步进度 | SM 状态审计不能代替真实会议；`docs/meetings/` 尚无纪要 | 待确认归档 |
+| Sprint 评审 | 每 Sprint 末 PO 主导演示可运行增量 | `docs/meetings/` 已归档 Sprint 3 评审会与回顾会纪要（#93/#95） | 部分（纪要已归档；参会人逐人确认待补，见 §7 T3） |
+| 每日站会 / 周会 | SM 主持，同步进度 | `docs/meetings/` 已归档 Sprint 1 / Sprint 4 计划会纪要（#95）；SM 状态审计不能代替真实会议 | 部分（计划会有纪要；逐次站会仍无记录） |
 | PR 审查 | ≥1 非作者 approve；作者不得自审 | CODEOWNERS `* @pengyaoyang111 @Lin-Kaiyang2412`；#2/#3/#4/#49/#51 已有补评，见 [SM 证据表](../team/sm-process-status-2026-11-02.md) | 已补留痕；历史先审后合仍不据此成立 |
 | 看板流转 | PBI → Sprint Backlog → 进行中 → Done | `docs/scrum/projects-board.png` 为初始截图（Todo 25 / In Progress 0 / Done 0） | 待核实真实流转 |
 | 学术诚信 | 未改测试断言、未绕过 PR 保护、无强推 | 见第 6 节自查 | 完成（自查） |
