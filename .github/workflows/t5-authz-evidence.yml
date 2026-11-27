@@ -81,7 +81,20 @@ jobs:
             exit 0
           fi
           git commit -m "docs(verification): T5 接口级越权响应码证据（run $GITHUB_RUN_ID） [skip ci]"
-          git push origin "HEAD:${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          # 运行期间可能有别的提交落到同一分支（同一次 push 改了多个文件时很常见），
+          # 直接 push 会被拒绝并静默丢掉这次证据（run 46001554984 就是这样：
+          # 提交 5edfeeb 只在 runner 上存在）。这里 rebase 后重试。
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:$BRANCH"; then
+              echo "证据已推送到 $BRANCH"
+              exit 0
+            fi
+            echo "第 $attempt 次推送被拒，rebase 到 $BRANCH 后重试"
+            git pull --rebase origin "$BRANCH" || exit 1
+          done
+          echo "证据推送连续失败，放弃回写（artifact 仍然保留）"
+          exit 1
 
       - name: 清理
         if: always()
