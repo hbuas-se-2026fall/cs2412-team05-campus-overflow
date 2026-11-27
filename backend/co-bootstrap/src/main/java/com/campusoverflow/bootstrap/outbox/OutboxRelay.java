@@ -15,7 +15,9 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -44,6 +46,10 @@ public class OutboxRelay {
     private final ApplicationEventPublisher bus;
     private final ObjectMapper mapper;
     private final Clock clock;
+    /**
+     * 应用是否已完全就绪：由 {@link ApplicationReadyEvent} 置位，早于它不轮询。
+     */
+    private volatile boolean ready;
     private final int batchSize;
     private final int maxAttempts;
     private final String instanceId = UUID.randomUUID().toString().substring(0, 8);
@@ -71,7 +77,37 @@ public class OutboxRelay {
         Gauge.builder("co_outbox_dead_letters", this, r -> r.count("attempts >= " + maxAttempts)).register(registry);
     }
 
+    /**
+     * 中继推迟到应用完全就绪之后再开始定时轮询。
+     *
+     * <p>demo profile 的 {@code DemoDataSeeder} 是 ApplicationRunner，启动期连续写入账号、问题、回答、投票、
+     * 认证、采纳、评论，每一步都往 {@code outbox_event} 插事件。它与中继的认领事务（{@code SELECT ... FOR UPDATE}
+     * 覆盖未投递区间）并发访问同一张表，在 MySQL 上会形成死锁并让应用启动直接失败——2026-11-26 的
+     * t5-authz-evidence 运行就是这样挂的：{@code DemoDataSeeder.run → AnswerCommandService.endorse →
+     * OutboxIntegrationEventPublisher.publish} 抛 {@code MySQLTransactionRollbackException: Deadlock found}，
+     * 容器退出码 1。
+     *
+     * <p>但初始化又不能完全没有投递：demo 数据里的悬赏需要「用户注册 → 声誉账户开立」这条事件链先跑完
+     * （{@code ReputationEventHandlers} 是订阅者）。因此初始化期间改由 {@code DemoDataSeeder} 主动调用
+     * {@link #relay()} 同步推进——同一个线程、没有并发，就不会有死锁。就绪之后才交回定时任务。
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        this.ready = true;
+    }
+
     @Scheduled(fixedDelayString = "${co.outbox.poll-interval-ms:500}")
+    public void scheduledRelay() {
+        if (!ready) {
+            return;
+        }
+        relay();
+    }
+
+    /**
+     * 同步推进一批投递。定时任务与初始化流程都走这里，区别只在于：定时任务要等应用就绪，
+     * 初始化（{@code DemoDataSeeder}）则在启动期直接调用，用同一个线程避免与定时轮询并发抢锁。
+     */
     public void relay() {
         List<Row> batch = claim();
         for (Row row : batch) {

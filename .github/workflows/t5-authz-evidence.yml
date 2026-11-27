@@ -1,0 +1,107 @@
+# T5 接口级越权取证：把「学生/教师/课管 × 边界接口」的响应码变成真实 HTTP 证据
+#
+# 背景：qa-t5-bounty-authz-2026-11-05.md §3 明确写着 T5 不能关闭的原因——
+# 本机无 Docker，接口级越权只有代码核对、没有响应码证据。
+# 本工作流复用 stack-smoke.yml 的全栈环境（runner 自带 Docker），
+# 登录 demo 账号后发真实请求，记录实际响应码与业务码，越权成功即判 FAIL。
+name: T5 接口级越权取证
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "scripts/t5_authz_evidence.py"
+      - ".github/workflows/t5-authz-evidence.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: t5-authz-evidence
+  cancel-in-progress: false
+
+jobs:
+  authz:
+    name: 三角色边界接口响应码取证
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      BACKEND_IMAGE: campus-overflow-backend:local
+      WEB_IMAGE: campus-overflow-web:local
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          # 必须检出「分支最新提交」而不是 pull_request 默认的合并预览提交（refs/pull/N/merge）：
+          # 合并提交上做提交再 rebase 到分支会冲突，证据就回写不了（run 46002381193 实证）。
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: 构建后端镜像
+        run: |
+          set -o pipefail
+          docker build -f deploy/backend.Dockerfile -t "$BACKEND_IMAGE" . 2>&1 | tail -25
+
+      - name: 构建前端镜像
+        run: |
+          set -o pipefail
+          docker build -f deploy/frontend.Dockerfile -t "$WEB_IMAGE" . 2>&1 | tail -25
+
+      - name: 启动编排
+        run: |
+          set -o pipefail
+          docker compose -f deploy/docker-compose.yml up -d --wait --wait-timeout 600 2>&1 | tee evidence-up.log
+
+      - name: 执行 T5 接口级取证
+        run: |
+          python3 scripts/t5_authz_evidence.py
+
+      - name: 收集日志
+        if: always()
+        run: |
+          mkdir -p evidence
+          for s in mysql redis backend web; do
+            docker compose -f deploy/docker-compose.yml logs --no-color --tail 80 "$s" > "evidence/09-log-$s.txt" 2>&1 || true
+          done
+          mv evidence-up.log evidence/02-up.log 2>/dev/null || true
+
+      - name: 上传证据
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: t5-authz-evidence
+          path: evidence/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: 回写证据到分支（仅 PR / 本分支）
+        if: always()
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/verification/qa-t5-interface-authz-latest.md
+          if git diff --cached --quiet; then
+            echo "证据无变化，跳过提交"
+            exit 0
+          fi
+          git commit -m "docs(verification): T5 接口级越权响应码证据（run $GITHUB_RUN_ID） [skip ci]"
+          # 运行期间可能有别的提交落到同一分支（同一次 push 改了多个文件时很常见），
+          # 直接 push 会被拒绝并静默丢掉这次证据（run 46001554984 就是这样：
+          # 提交 5edfeeb 只在 runner 上存在）。这里 rebase 后重试。
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:$BRANCH"; then
+              echo "证据已推送到 $BRANCH"
+              exit 0
+            fi
+            echo "第 $attempt 次推送被拒，rebase 到 $BRANCH 后重试"
+            git pull --rebase origin "$BRANCH" || exit 1
+          done
+          echo "证据推送连续失败，放弃回写（artifact 仍然保留）"
+          exit 1
+
+      - name: 清理
+        if: always()
+        run: |
+          docker compose -f deploy/docker-compose.yml down -v --remove-orphans || true

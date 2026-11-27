@@ -1,5 +1,6 @@
 package com.campusoverflow.bootstrap.demo;
 
+import com.campusoverflow.bootstrap.outbox.OutboxRelay;
 import com.campusoverflow.identity.api.IdentityApi;
 import com.campusoverflow.identity.application.AdminUserService;
 import com.campusoverflow.identity.application.CourseService;
@@ -46,10 +47,11 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final VoteService votes;
     private final CommentService comments;
     private final BountyService bounties;
+    private final OutboxRelay outbox;
 
     public DemoDataSeeder(IdentityApi identity, UserRegistrationService registration, AdminUserService admins,
                           CourseService courses, QuestionCommandService questions, AnswerCommandService answers,
-                          VoteService votes, CommentService comments, BountyService bounties) {
+                          VoteService votes, CommentService comments, BountyService bounties, OutboxRelay outbox) {
         this.identity = identity;
         this.registration = registration;
         this.admins = admins;
@@ -59,6 +61,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         this.votes = votes;
         this.comments = comments;
         this.bounties = bounties;
+        this.outbox = outbox;
     }
 
     @Override
@@ -129,6 +132,11 @@ public class DemoDataSeeder implements ApplicationRunner {
                 我在 Service 里写了 `public void a() { b(); }`，其中 `b()` 上标了 `@Transactional`，
                 但是抛异常后数据并没有回滚。换成从另一个 Bean 调用 `b()` 就正常了，这是为什么？
                 """, List.of("java", "spring-boot", "事务")));
+        // 悬赏要求出资人已有声誉账户，而账户由「用户注册」事件在 ReputationEventHandlers 里开立。
+        // 启动期定时中继是暂停的（见 OutboxRelay#onApplicationReady），这里主动同步推进一次，
+        // 把此前的事件（含 5 个账号的注册）真正投递出去，避免 open() 抛「声誉账户不存在」。
+        outbox.relay();
+
         bounties.open(teacher, q2, 50, 7);
 
         questions.post(hong, new PostQuestionCommand(courseId, "MySQL 的 ngram 全文索引是如何支持中文检索的？",
@@ -136,6 +144,9 @@ public class DemoDataSeeder implements ApplicationRunner {
                 默认的全文索引按空格分词，对中文几乎无效。课程项目里用到了 `WITH PARSER ngram`，
                 想知道它的分词粒度 `ngram_token_size` 如何影响检索效果和索引体积？
                 """, List.of("mysql", "全文检索")));
+
+        // 收尾：把剩余事件（悬赏、评论等）同步投递完，演示时通知中心与排行榜直接就是终态。
+        outbox.relay();
 
         log.info("演示数据初始化完成：管理员 admin01 / 教师 T2001 / 助教 TA3001 / 学生 2023001-2023003，密码 {}", PASSWORD);
     }
