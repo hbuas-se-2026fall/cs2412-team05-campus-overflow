@@ -31,6 +31,11 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          # 必须检出「分支最新提交」而不是 pull_request 默认的合并预览提交（refs/pull/N/merge）：
+          # 合并提交上做提交再 rebase 到分支会冲突，证据就回写不了（run 46002381193 实证）。
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
 
       - name: 构建后端镜像
         run: |
